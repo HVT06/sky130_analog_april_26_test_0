@@ -1,11 +1,11 @@
 /*
- * Copyright (c) 2024 Your Name
+ * Copyright (c) 2024 hvt006
  * SPDX-License-Identifier: Apache-2.0
  */
 
 `default_nettype none
 
-module tt_um_example (
+module tt_um_hvt006_cs_amp (
     input  wire       VGND,
     input  wire       VDPWR,    // 1.8v power supply
 //    input  wire       VAPWR,    // 3.3v power supply
@@ -19,5 +19,10 @@ module tt_um_example (
     input  wire       clk,      // clock
     input  wire       rst_n     // reset_n - low to reset
 );
+
+    // Tie unused digital outputs to ground to avoid floating pins
+    assign uo_out  = 8'b0;
+    assign uio_out = 8'b0;
+    assign uio_oe  = 8'b0;
 
 endmodule

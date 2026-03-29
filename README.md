@@ -1,36 +1,24 @@
 ![](../../workflows/gds/badge.svg) ![](../../workflows/docs/badge.svg)
 
-# Tiny Tapeout Analog Project Template
+# Common-Source NMOS Amplifier — Tiny Tapeout Analog (Sky130A)
 
-- [Read the documentation for project](docs/info.md)
+A simple common-source NMOS amplifier designed for the Tiny Tapeout analog shuttle using the Sky130A PDK.
 
-## What is Tiny Tapeout?
+| Parameter | Value |
+|-----------|-------|
+| **PDK** | Sky130A (1.8V) |
+| **Tile size** | 1×2 (160 × 225 µm) |
+| **Transistor** | NMOS W=2µm, L=150nm |
+| **Analog pins** | ua[0] = gate input, ua[1] = drain output |
+| **Power** | VDPWR = 1.8V, VGND = 0V |
 
-Tiny Tapeout is an educational project that aims to make it easier and cheaper than ever to get your digital designs manufactured on a real chip.
+## Quick Start
 
-To learn more and get started, visit https://tinytapeout.com.
+```bash
+# Regenerate GDS and LEF (requires Python 3 + gdstk)
+pip install gdstk
+python3 generate_layout.py
+```
 
-## Analog projects
-
-For specifications and instructions, see the [analog specs page](https://tinytapeout.com/specs/analog/).
-
-## Enable GitHub actions to build the results page
-
-- [Enabling GitHub Pages](https://tinytapeout.com/faq/#my-github-action-is-failing-on-the-pages-part)
-
-## Resources
-
-- [FAQ](https://tinytapeout.com/faq/)
-- [Digital design lessons](https://tinytapeout.com/digital_design/)
-- [Learn how semiconductors work](https://tinytapeout.com/siliwiz/)
-- [Join the community](https://tinytapeout.com/discord)
-
-## What next?
-
-- [Submit your design to the next shuttle](https://app.tinytapeout.com/).
-- Edit [this README](README.md) and explain your design, how it works, and how to test it.
-- Share your project on your social network of choice:
-  - LinkedIn [#tinytapeout](https://www.linkedin.com/search/results/content/?keywords=%23tinytapeout) [@TinyTapeout](https://www.linkedin.com/company/100708654/)
-  - Mastodon [#tinytapeout](https://chaos.social/tags/tinytapeout) [@matthewvenn](https://chaos.social/@matthewvenn)
-  - X (formerly Twitter) [#tinytapeout](https://twitter.com/hashtag/tinytapeout) [@tinytapeout](https://twitter.com/tinytapeout)
-  - Bluesky [@tinytapeout.com](https://bsky.app/profile/tinytapeout.com)
+- [Project documentation](docs/info.md)
+- [Step-by-step instructions for analog TT projects](INSTRUCTIONS.md)
