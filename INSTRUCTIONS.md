@@ -24,6 +24,18 @@ This guide walks you through setting up, designing, and submitting a Tiny Tapeou
    cd YOUR_REPO
    ```
 
+> **⚠️ CRITICAL: Clone directly, do NOT nest repos!**
+> Clone your repo into its own standalone directory. Do **not** clone it inside another git repository. If git detects a nested `.git` directory, it may register it as a **submodule** (a `160000` mode entry) without a `.gitmodules` file. This will cause GitHub Actions `actions/checkout` to fail with:
+> ```
+> fatal: No url found for submodule path '...' in .gitmodules
+> ```
+> If this happens, remove the submodule entry:
+> ```bash
+> git rm --cached path/to/nested_repo
+> git commit -m "Remove stale submodule reference"
+> git push
+> ```
+
 ---
 
 ## Step 2: Choose Your Tile Size
@@ -156,7 +168,11 @@ Key Sky130A GDS layers:
 5. **Pin labels** (TEXT elements) on label layer (71,5)
 6. **Power stripes** on met4: minimum width 1.2µm, from y=5µm to y=220.76µm
 7. **No met5** — metal 5 is reserved for TT routing
-8. Save as `gds/<top_module>.gds`
+8. **Analog pin stubs** — each analog pin declared in `analog_pins` **must** have adjacent metal connected to it (not just the pin rectangle). Add a met4 stub (e.g., 3µm extension) from each used analog pin into the cell area. Without this, the precheck fails with: `Analog pin ua[X] is not connected to any adjacent metal`
+9. **Magic DRC compliance** — the precheck runs Magic DRC. If you draw device geometry (diffusion, poly, contacts, vias) by hand with gdstk, you will almost certainly violate sky130A design rules (contact enclosure, spacing, implant overlap, etc.). Either:
+   - Use **only met4** shapes (pins + stubs + power stripes + boundary) — this is DRC-safe and sufficient for analog pin routing
+   - Or use **Magic VLSI** or **OpenLane** to generate DRC-clean device layout
+10. Save as `gds/<top_module>.gds`
 
 #### Pin Positions (1×2 tile)
 
@@ -187,9 +203,23 @@ All digital pins are at y=225.260 µm.
 - VDPWR: x = 1.0 to 3.0 µm, y = 5.0 to 220.76 µm
 - VGND: x = 4.5 to 6.5 µm, y = 5.0 to 220.76 µm
 
+#### Analog Pin Stub Example
+
+For each used analog pin, extend a met4 rectangle from the pin into the cell:
+
+```python
+# For pins ua[0] and ua[1] (analog_pins = 2)
+for i in range(2):
+    cx, cy, hw, hh = pin_positions[f"ua[{i}]"]
+    # Met4 stub: same width as pin, extending 3um upward from top edge
+    add_rect(cell, cx - hw, cy + hh, cx + hw, cy + hh + 3.0, 'met4')
+```
+
+This ensures the precheck sees metal connected to each declared analog pin.
+
 #### Example GDS Script
 
-See `generate_layout.py` in this repository for a complete working example.
+See `generate_layout.py` in this repository for a complete working example that generates a DRC-clean GDS with all pins, power stripes, boundary, and analog pin stubs.
 
 ### Option B: Magic VLSI (For Complex Designs)
 
@@ -332,7 +362,23 @@ head -10 lef/*.lef
 
 ---
 
-## Step 9: Commit and Push
+## Step 9: Enable GitHub Pages
+
+**Before pushing**, enable GitHub Pages so the viewer workflow can deploy:
+
+1. Go to `https://github.com/YOUR_USERNAME/YOUR_REPO/settings/pages`
+2. Under **Build and deployment → Source**, select **GitHub Actions**
+3. Click **Save**
+
+> **⚠️ If you skip this, the viewer step will fail with:**
+> ```
+> Error: Failed to create deployment (status: 404)
+> ```
+> You can enable Pages after the fact and re-run the failed workflow.
+
+---
+
+## Step 10: Commit and Push
 
 ```bash
 git add -A
@@ -343,7 +389,7 @@ git push origin main
 
 ---
 
-## Step 10: Check GitHub Actions
+## Step 11: Check GitHub Actions
 
 1. Go to your repository on GitHub
 2. Click the **Actions** tab
@@ -351,25 +397,91 @@ git push origin main
    - **gds** — validates GDS/LEF, runs precheck, builds viewer
    - **docs** — builds documentation page
 
-If a workflow fails:
-- Click the failed run to see logs
-- Common issues:
-  - Cell name mismatch between GDS, LEF, Verilog, and info.yaml
-  - Missing pins in GDS or LEF
-  - Bounding box exceeds tile size
-  - Met5 usage (reserved for TT routing)
-  - Floating digital output pins (must be tied to GND in Verilog)
+### Troubleshooting Common Failures
+
+| Error | Cause | Fix |
+|-------|-------|-----|
+| `fatal: No url found for submodule path '...' in .gitmodules` | Repo was cloned inside another git repo, creating a phantom submodule | `git rm --cached <path>` then commit and push |
+| `Magic DRC failed` | Hand-drawn device geometry (diff, poly, contacts) violates sky130A rules | Remove device layers; use only met4 shapes, or use Magic/OpenLane for DRC-clean layout |
+| `Analog pin ua[X] is not connected to any adjacent metal` | Analog pin declared in `info.yaml` but no metal extends from it in GDS | Add met4 stubs (≥3µm) extending from each used analog pin into the cell |
+| `Failed to create deployment (status: 404)` | GitHub Pages not enabled | Go to repo Settings → Pages → Source: **GitHub Actions** |
+| Cell name mismatch | `top_module` in info.yaml ≠ module name in project.v ≠ cell name in GDS ≠ MACRO in LEF | Ensure all four match exactly |
+| Missing pins in GDS or LEF | Pin rectangles or labels missing for some ports | Include all 51 signal pins + 2 power pins from DEF template |
+| Bounding box exceeds tile size | Layout extends beyond (161.000, 225.760) for 1×2 | Check prbndry and ensure all geometry is within bounds |
+| Met5 usage | Metal 5 shapes in GDS | Remove all met5; it's reserved for TT top-level routing |
+| Floating digital outputs | `uo_out`, `uio_out`, `uio_oe` not driven in Verilog | Add `assign uo_out = 8'b0; assign uio_out = 8'b0; assign uio_oe = 8'b0;` |
 
 ---
 
-## Checklist
+## Pre-Push Checklist
 
-- [ ] `info.yaml`: `top_module` starts with `tt_um_`, `tiles` set correctly, `analog_pins` count is right
-- [ ] `src/project.v`: module name matches `top_module`, unused outputs tied to ground
-- [ ] `gds/<top_module>.gds`: correct cell name, pins on met4, power stripes, no met5
-- [ ] `lef/<top_module>.lef`: MACRO name matches, all pins defined, correct SIZE
-- [ ] `docs/info.md`: all three sections filled in
-- [ ] GitHub Actions: both `gds` and `docs` workflows pass
+Run through **every item** before pushing. Each corresponds to a real CI failure we've encountered:
+
+### Repository Setup
+- [ ] Repo is **not** nested inside another git repo (no phantom submodules)
+- [ ] No `Downloads/` or other stray directories committed to the repo
+- [ ] GitHub Pages enabled: Settings → Pages → Source: **GitHub Actions**
+
+### info.yaml
+- [ ] `top_module` starts with `tt_um_` and matches Verilog module name exactly
+- [ ] `tiles` set correctly (e.g., `"1x2"`)
+- [ ] `analog_pins` matches the actual number of analog pins with metal stubs in GDS
+- [ ] `clock_hz: 0` for analog-only designs
+
+### src/project.v
+- [ ] Module name matches `top_module` from `info.yaml` exactly
+- [ ] All unused digital outputs tied to ground: `assign uo_out = 8'b0; assign uio_out = 8'b0; assign uio_oe = 8'b0;`
+
+### GDS (`gds/<top_module>.gds`)
+- [ ] Cell name matches `top_module` exactly
+- [ ] Bounding box within tile size (161.000 × 225.760 µm for 1×2)
+- [ ] All 51 signal pins + 2 power pins present on met4 at DEF positions
+- [ ] Pin rectangles on BOTH met4 drawing (71,20) AND met4 pin (71,16) layers
+- [ ] Pin labels on met4 label layer (71,5)
+- [ ] Power stripes (VDPWR, VGND) on met4, min 1.2µm wide
+- [ ] **Met4 stubs on every used analog pin** (extends ≥3µm from pin into cell)
+- [ ] **No met5** shapes anywhere
+- [ ] **No hand-drawn device geometry** (diff, poly, contacts) unless DRC-verified with Magic
+- [ ] Only layers used: met4 (71,20), met4_pin (71,16), met4_lbl (71,5), prbndry (235,4)
+
+### LEF (`lef/<top_module>.lef`)
+- [ ] MACRO name matches `top_module` exactly
+- [ ] SIZE matches die area (161.000 BY 225.760 for 1×2)
+- [ ] All power + signal pins defined with correct RECT coordinates
+
+### Documentation
+- [ ] `docs/info.md`: all three sections filled in (How it works, How to test, External hardware)
+
+### Quick Verification Commands
+```bash
+# Run all checks in one shot:
+echo "=== Files ==="
+ls gds/*.gds lef/*.lef src/project.v docs/info.md info.yaml
+
+echo "=== Name consistency ==="
+grep 'top_module' info.yaml
+grep '^module ' src/project.v
+head -8 lef/*.lef | grep MACRO
+
+echo "=== GDS check ==="
+python3 -c "
+import gdstk
+lib = gdstk.read_gds('gds/$(grep top_module info.yaml | sed 's/.*"\(.*\)".*/\1/').gds')
+c = lib.top_level()[0]
+bb = c.bounding_box()
+print(f'Cell: {c.name}')
+print(f'BBox: ({bb[0][0]:.3f},{bb[0][1]:.3f}) to ({bb[1][0]:.3f},{bb[1][1]:.3f})')
+print(f'Polygons: {len(c.polygons)}, Labels: {len(c.labels)}')
+layers = sorted(set((p.layer, p.datatype) for p in c.polygons))
+print(f'Layers: {layers}')
+for ly, dt in layers:
+    if ly == 72: print('ERROR: met5 detected!')
+    if ly in (65,66,67) and dt == 20: print(f'WARNING: device layer ({ly},{dt}) may cause Magic DRC failure')
+"
+
+echo "=== Submodule check ==="
+git ls-files --stage | grep '^160000' && echo 'ERROR: submodule entries found!' || echo 'OK: no submodules'
+```
 
 ---
 
