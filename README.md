@@ -44,9 +44,9 @@ Cpd = 100 fF  (photodiode model at Vin)
 .
 |-- info.yaml                 Project metadata (TT analog template)
 |-- src/project.v             Verilog black-box wrapper
-|-- generate_layout.py        Met4-only GDS generator (run to regenerate GDS)
+|-- generate_layout.py        Full-layer GDS generator (run to regenerate GDS)
 |-- gds/
-|   `-- tt_um_hvt006_tia.gds  Layout (GDS-II, met4-only, DRC-clean)
+|   `-- tt_um_hvt006_tia.gds  Layout (GDS-II, all device layers, sky130A)
 |-- lef/
 |   `-- tt_um_hvt006_tia.lef  Abstract (LEF)
 |-- sim/
@@ -85,8 +85,17 @@ See [sim/README.md](sim/README.md) for details.
 
 ## Layout
 
-The GDS uses **met4-only geometry** (DRC-safe for TT precheck).
-Device layers are implemented by the tapeout flow.
+The GDS contains **all physical device layers** drawn explicitly using sky130A foundry
+standard cells and primitives:
+
+| Component | Implementation |
+|-----------|----------------|
+| NFET / PFET | `sky130_fd_sc_hd__inv_6` (W_N=3.6 µm, W_P=3.6 µm) |
+| Rfb (5 kΩ) | `sky130_fd_pr__res_high_po_0p35` poly resistor (W=0.35 µm, L=1.55 µm) |
+| Well taps | `sky130_fd_sc_hd__tapvpwrvgnd_1` |
+| Metal stack | li1 → met1 → met2 → met3 → met4 with via0–via3 |
+
+Layer SVG exports (per-layer + combined) are in `svg/`.
 
 To regenerate:
 
@@ -94,7 +103,7 @@ To regenerate:
 python3 generate_layout.py
 ```
 
-**Output**: `gds/tt_um_hvt006_tia.gds`, `lef/tt_um_hvt006_tia.lef`
+**Output**: `gds/tt_um_hvt006_tia.gds` (20 KB), `lef/tt_um_hvt006_tia.lef`, `svg/*.svg`
 
 ## Pinout
 

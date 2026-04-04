@@ -1,11 +1,23 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="684.0" height="968.0"
-     viewBox="0 0 684.0 968.0">
-  <rect width="100%" height="100%" fill="#1a1a2e"/>
-  <text x="342.0" y="18" font-family="sans-serif" font-size="16" fill="#222" text-anchor="middle" font-weight="bold">tt_um_hvt006_cs_amp — mcon (67,44)</text>
-  <g transform="translate(0, 25)">
-    <path d="M 20.00,923.04 L 664.00,923.04 L 664.00,20.00 L 20.00,20.00 Z" fill="none" stroke="#555555" stroke-width="1" stroke-dasharray="4,2"/>
-    <path d="M 355.56,477.66 L 356.24,477.66 L 356.24,476.98 L 355.56,476.98 Z M 325.56,477.66 L 326.24,477.66 L 326.24,476.98 L 325.56,476.98 Z M 367.26,477.66 L 367.94,477.66 L 367.94,476.98 L 367.26,476.98 Z" fill="#FFD700" fill-opacity="0.7" stroke="#ccaa00" stroke-width="0.5"/>
-    <text x="10" y="938.04" font-family="sans-serif" font-size="11" fill="#aaaaaa">mcon (67,44) — 3 polygons</text>
-  </g>
+<svg xmlns="http://www.w3.org/2000/svg" width="483" height="677" viewBox="0 0 483 677">
+<rect width="483" height="677" fill="#1a1a2e"/>
+<rect x="242.67" y="582.72" width="0.54" height="0.54" fill="#808040" fill-opacity="0.80" stroke="#404000" stroke-opacity="0.90" stroke-width="0.50"/>
+<rect x="234.51" y="569.24" width="0.54" height="0.54" fill="#808040" fill-opacity="0.80" stroke="#404000" stroke-opacity="0.90" stroke-width="0.50"/>
+<rect x="232.00" y="586.31" width="0.51" height="0.51" fill="#808040" fill-opacity="0.80" stroke="#404000" stroke-opacity="0.90" stroke-width="0.50"/>
+<rect x="232.00" y="578.14" width="0.51" height="0.51" fill="#808040" fill-opacity="0.80" stroke="#404000" stroke-opacity="0.90" stroke-width="0.50"/>
+<rect x="234.52" y="578.14" width="0.51" height="0.51" fill="#808040" fill-opacity="0.80" stroke="#404000" stroke-opacity="0.90" stroke-width="0.50"/>
+<rect x="234.52" y="586.31" width="0.51" height="0.51" fill="#808040" fill-opacity="0.80" stroke="#404000" stroke-opacity="0.90" stroke-width="0.50"/>
+<rect x="235.91" y="578.14" width="0.51" height="0.51" fill="#808040" fill-opacity="0.80" stroke="#404000" stroke-opacity="0.90" stroke-width="0.50"/>
+<rect x="235.91" y="586.31" width="0.51" height="0.51" fill="#808040" fill-opacity="0.80" stroke="#404000" stroke-opacity="0.90" stroke-width="0.50"/>
+<rect x="237.28" y="578.14" width="0.51" height="0.51" fill="#808040" fill-opacity="0.80" stroke="#404000" stroke-opacity="0.90" stroke-width="0.50"/>
+<rect x="237.28" y="586.31" width="0.51" height="0.51" fill="#808040" fill-opacity="0.80" stroke="#404000" stroke-opacity="0.90" stroke-width="0.50"/>
+<rect x="238.67" y="578.14" width="0.51" height="0.51" fill="#808040" fill-opacity="0.80" stroke="#404000" stroke-opacity="0.90" stroke-width="0.50"/>
+<rect x="238.67" y="586.31" width="0.51" height="0.51" fill="#808040" fill-opacity="0.80" stroke="#404000" stroke-opacity="0.90" stroke-width="0.50"/>
+<rect x="240.05" y="578.14" width="0.51" height="0.51" fill="#808040" fill-opacity="0.80" stroke="#404000" stroke-opacity="0.90" stroke-width="0.50"/>
+<rect x="240.05" y="586.31" width="0.51" height="0.51" fill="#808040" fill-opacity="0.80" stroke="#404000" stroke-opacity="0.90" stroke-width="0.50"/>
+<rect x="241.42" y="586.31" width="0.51" height="0.51" fill="#808040" fill-opacity="0.80" stroke="#404000" stroke-opacity="0.90" stroke-width="0.50"/>
+<rect x="241.42" y="578.14" width="0.51" height="0.51" fill="#808040" fill-opacity="0.80" stroke="#404000" stroke-opacity="0.90" stroke-width="0.50"/>
+<rect x="242.81" y="586.31" width="0.51" height="0.51" fill="#808040" fill-opacity="0.80" stroke="#404000" stroke-opacity="0.90" stroke-width="0.50"/>
+<rect x="242.81" y="578.14" width="0.51" height="0.51" fill="#808040" fill-opacity="0.80" stroke="#404000" stroke-opacity="0.90" stroke-width="0.50"/>
+<rect x="245.32" y="586.31" width="0.51" height="0.51" fill="#808040" fill-opacity="0.80" stroke="#404000" stroke-opacity="0.90" stroke-width="0.50"/>
+<rect x="245.32" y="578.14" width="0.51" height="0.51" fill="#808040" fill-opacity="0.80" stroke="#404000" stroke-opacity="0.90" stroke-width="0.50"/>
 </svg>

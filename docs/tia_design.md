@@ -200,6 +200,49 @@ Expected corner spread: Zt ~ 3000-4500 Ohm, BW ~ 0.8-1.4 GHz.
 
 ---
 
+## 7. Physical Layout
+
+### Standard Cells Used
+
+| Cell | Function | Dimensions |
+|------|----------|------------|
+| `sky130_fd_sc_hd__inv_6` | CMOS inverter (TIA core — NFET W=3.6 µm, PFET W=3.6 µm) | 3.60 × 2.72 µm |
+| `sky130_fd_sc_hd__tapvpwrvgnd_1` | N-well / substrate tap (×2) | 0.84 × 2.72 µm |
+
+### Poly Resistor (Rfb)
+
+The feedback resistor uses the `sky130_fd_pr__res_high_po_0p35` model:
+
+$$R_{sh} = 1112\ \Omega/\square, \quad r_{con} = 590\ \Omega/\text{contact}$$
+$$R_{fb} = R_{sh} \cdot \frac{L_{body}}{W} + 2 \cdot r_{con} = 1112 \cdot \frac{1.20}{0.35} + 2 \times 590 \approx 5.0\ \text{k}\Omega$$
+
+Geometry: W = 0.35 µm, L_body = 1.20 µm, head = 0.35 µm, RPO block covers device.
+
+### Layer Stack
+
+```
+met4  (71,20/16)  — TT pin frame + power grid (VDD/GND stripes)
+via3  (70,44)     — met3 → met4 vias
+met3  (70,20)     — horizontal signal routing
+via2  (69,44)     — met2 → met3 vias
+met2  (69,20)     — vertical signal / power routing
+via   (68,44)     — met1 → met2 vias
+met1  (68,20)     — local cell connections
+mcon  (67,44)     — li1 → met1 contacts
+li1   (67,20)     — M0 intra-cell routing
+licon (66,44)     — poly/diff → li1 contacts
+poly  (66,20)     — MOSFET gates + Rfb body
+diff  (65,20)     — source/drain diffusion
+nwell (64,20)     — PMOS well
+RPO   (75,20)     — poly resistor block
+nsdm  (93,44)     — N+ source/drain implant
+psdm  (94,20)     — P+ source/drain implant
+```
+
+Per-layer SVG exports and a combined view are in `svg/`.
+
+---
+
 ## References
 
 1. B. Razavi, *Design of Analog CMOS Integrated Circuits*, 2nd ed., Ch. 10.
