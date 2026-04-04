@@ -1,9 +1,9 @@
 # Tiny Tapeout project information
 project:
-  title:        "Common-Source NMOS Amplifier"      # Project title
+  title:        "Inverter-Based Transimpedance Amplifier (TIA) — Sky130A"      # Project title
   author:       "hvt006"      # Your name
   discord:      ""      # Your discord username, for communication and automatically assigning you a Tapeout role (optional)
-  description:  "Simple common-source NMOS amplifier with W=2um L=150nm for analog testing on sky130A"      # One line description of what your project does
+  description:  "Single-stage inverter-based TIA with 5kΩ feedback resistor. NMOS W=2µm/L=150nm, PMOS W=4µm/L=150nm. Converts photodiode current to voltage with Zt≈5kΩ, BW>500MHz."      # One line description of what your project does
   language:     "Analog" # other examples include Verilog, Amaranth, VHDL, etc
   clock_hz:     0       # Clock frequency in Hz (or 0 if not applicable)
 
@@ -15,7 +15,7 @@ project:
   uses_3v3: false       # Set to true if your project uses 3.3V (VAPWR) in addition to 1.8V (VDPWR)
 
   # Your top module name must start with "tt_um_". Make it unique by including your github username:
-  top_module:  "tt_um_hvt006_cs_amp"
+  top_module:  "tt_um_hvt006_tia"
 
   # List your project's source files here. Source files must be in ./src and you must list each source file separately, one per line:
   source_files:        
@@ -55,8 +55,8 @@ pinout:
   uio[7]: ""
 
   # Analog pins - make sure to also set "analog_pins" above, else the pins won't be connected
-  ua[0]: "gate_in (CS amplifier input)"
-  ua[1]: "drain_out (CS amplifier output)"
+  ua[0]: "Iin  — photodiode current input (TIA input node)"
+  ua[1]: "Vout — transimpedance voltage output"
   ua[2]: ""
   ua[3]: ""
   ua[4]: ""

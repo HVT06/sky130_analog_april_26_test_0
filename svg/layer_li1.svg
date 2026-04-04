@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="684.0" height="968.0"
+     viewBox="0 0 684.0 968.0">
+  <rect width="100%" height="100%" fill="#1a1a2e"/>
+  <text x="342.0" y="18" font-family="sans-serif" font-size="16" fill="#222" text-anchor="middle" font-weight="bold">tt_um_hvt006_cs_amp — li1 (67,20)</text>
+  <g transform="translate(0, 25)">
+    <path d="M 20.00,923.04 L 664.00,923.04 L 664.00,20.00 L 20.00,20.00 Z" fill="none" stroke="#555555" stroke-width="1" stroke-dasharray="4,2"/>
+    <path d="M 327.74,477.66 L 332.94,477.66 L 332.94,476.98 L 327.74,476.98 Z M 334.78,477.66 L 339.98,477.66 L 339.98,476.98 L 334.78,476.98 Z M 341.82,477.66 L 347.02,477.66 L 347.02,476.98 L 341.82,476.98 Z M 348.86,477.66 L 354.06,477.66 L 354.06,476.98 L 348.86,476.98 Z M 355.90,477.66 L 360.24,477.66 L 360.24,476.98 L 355.90,476.98 Z M 355.22,478.00 L 356.58,478.00 L 356.58,476.64 L 355.22,476.64 Z M 325.22,478.00 L 326.58,478.00 L 326.58,476.64 L 325.22,476.64 Z M 366.92,478.00 L 368.28,478.00 L 368.28,476.64 L 366.92,476.64 Z" fill="#00BFFF" fill-opacity="0.55" stroke="#0099cc" stroke-width="0.5"/>
+    <text x="10" y="938.04" font-family="sans-serif" font-size="11" fill="#aaaaaa">li1 (67,20) — 8 polygons</text>
+  </g>
+</svg>

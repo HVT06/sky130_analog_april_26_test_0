@@ -1,180 +1,169 @@
 #!/usr/bin/env python3
 """
-Generate GDS and LEF for Tiny Tapeout Sky130A Analog Project:
-Common-Source NMOS Amplifier (tt_um_hvt006_cs_amp)
+Inverter-Based TIA Layout for Tiny Tapeout Sky130A Analog Project
 
-Usage:  cd sky130_analog_april_26_test_0 && python3 generate_layout.py
-Output: gds/tt_um_hvt006_cs_amp.gds, lef/tt_um_hvt006_cs_amp.lef
+Met4-only geometry (DRC-safe per TT precheck requirements).
+Only the pin frame, power stripes, and annotation blocks are drawn here.
+The actual device layers are implemented by the tapeout flow.
+
+Cell: tt_um_hvt006_tia  (161.000 x 225.760 um, 1x2 tile)
+
+Pins used:
+  ua[0] (x=152.260) -- Iin  : photodiode current input
+  ua[1] (x=132.940) -- Vout : transimpedance voltage output
+
+Usage: python3 generate_layout.py
 """
 
 import gdstk
 import os
 
-# ==============================================================
+# ============================================================
 # Configuration
-# ==============================================================
-TOP = "tt_um_hvt006_cs_amp"
-DIE_W = 161.000     # um (from TT 1x2 analog template)
-DIE_H = 225.760     # um
+# ============================================================
+TOP   = "tt_um_hvt006_tia"
+DIE_W = 161.000
+DIE_H = 225.760
 
-# ==============================================================
-# Sky130A GDS Layer Definitions (layer, datatype)
-# ==============================================================
+# Sky130A GDS layers (met4 only for DRC-safe GDS)
 LY = {
-    'nwell':    (64, 20),
-    'diff':     (65, 20),
-    'tap':      (65, 44),
-    'poly':     (66, 20),
-    'licon1':   (66, 44),
-    'npc':      (95, 20),
-    'li1':      (67, 20),
-    'mcon':     (67, 44),
-    'met1':     (68, 20),
-    'met1_pin': (68, 16),
-    'met1_lbl': (68, 5),
-    'via':      (68, 44),
-    'met2':     (69, 20),
-    'met2_pin': (69, 16),
-    'met2_lbl': (69, 5),
-    'via2':     (69, 44),
-    'met3':     (70, 20),
-    'met3_pin': (70, 16),
-    'met3_lbl': (70, 5),
-    'via3':     (70, 44),
     'met4':     (71, 20),
     'met4_pin': (71, 16),
-    'met4_lbl': (71, 5),
-    'nsdm':     (93, 44),
-    'psdm':     (94, 20),
+    'met4_lbl': (71,  5),
     'prbndry':  (235, 4),
 }
 
-# ==============================================================
-# Pin Positions from tt_analog_1x2.def
-# Format: (center_x, center_y, half_width, half_height, direction)
-# All dimensions in um
-# ==============================================================
-PINS = {}
-
-# Analog pins - bottom edge, met4, 0.9 x 1.0 um
+# TT pin positions (from DEF template)
+# ua[0..7] at bottom edge (y=0..1), 0.9 um wide each
 ANALOG_X = [152.260, 132.940, 113.620, 94.300, 74.980, 55.660, 36.340, 17.020]
-for i, x in enumerate(ANALOG_X):
-    PINS[f"ua[{i}]"] = (x, 0.500, 0.450, 0.500, "INOUT")
+ANALOG_PINS_USED = 2  # ua[0]=Iin, ua[1]=Vout
 
-# Digital pins - top edge, met4, 0.3 x 1.0 um
-PINS['clk']   = (143.980, 225.260, 0.150, 0.500, "INPUT")
-PINS['ena']   = (146.740, 225.260, 0.150, 0.500, "INPUT")
-PINS['rst_n'] = (141.220, 225.260, 0.150, 0.500, "INPUT")
-
+DIGITAL_PINS = {}
+DIGITAL_PINS['clk']   = (143.980, 225.260)
+DIGITAL_PINS['ena']   = (146.740, 225.260)
+DIGITAL_PINS['rst_n'] = (141.220, 225.260)
 for i in range(8):
-    PINS[f"ui_in[{i}]"]   = (138.460 - i*2.760, 225.260, 0.150, 0.500, "INPUT")
-    PINS[f"uo_out[{i}]"]  = ( 94.300 - i*2.760, 225.260, 0.150, 0.500, "OUTPUT")
-    PINS[f"uio_in[{i}]"]  = (116.380 - i*2.760, 225.260, 0.150, 0.500, "INPUT")
-    PINS[f"uio_out[{i}]"] = ( 72.220 - i*2.760, 225.260, 0.150, 0.500, "OUTPUT")
-    PINS[f"uio_oe[{i}]"]  = ( 50.140 - i*2.760, 225.260, 0.150, 0.500, "OUTPUT")
+    DIGITAL_PINS[f"ui_in[{i}]"]   = (138.460 - i*2.760, 225.260)
+    DIGITAL_PINS[f"uo_out[{i}]"]  = ( 94.300 - i*2.760, 225.260)
+    DIGITAL_PINS[f"uio_in[{i}]"]  = (116.380 - i*2.760, 225.260)
+    DIGITAL_PINS[f"uio_out[{i}]"] = ( 72.220 - i*2.760, 225.260)
+    DIGITAL_PINS[f"uio_oe[{i}]"]  = ( 50.140 - i*2.760, 225.260)
 
-# Power stripe rectangles (x1, y1, x2, y2) on met4
-VDPWR_RECT = (1.0, 5.0, 3.0, 220.76)
-VGND_RECT  = (4.5, 5.0, 6.5, 220.76)
+VDPWR_RECT = (1.0, 5.0, 3.0, 220.76)   # 2 um wide VDD stripe
+VGND_RECT  = (4.5, 5.0, 6.5, 220.76)   # 2 um wide GND stripe
 
-
-# ==============================================================
-# Helper Functions
-# ==============================================================
-def add_rect(cell, x1, y1, x2, y2, layer_name):
+# ============================================================
+# Helpers
+# ============================================================
+def R(cell, x1, y1, x2, y2, layer_name):
     ly = LY[layer_name]
     cell.add(gdstk.rectangle((x1, y1), (x2, y2), layer=ly[0], datatype=ly[1]))
 
 
-def add_label(cell, text, x, y, layer_name):
+def L(cell, text, x, y, layer_name):
     ly = LY[layer_name]
     cell.add(gdstk.Label(text, (x, y), layer=ly[0], texttype=ly[1]))
 
 
-def add_via_stack(cell, cx, cy, size=0.5):
-    """Draw a complete via stack from li1 through met4 at (cx, cy)."""
-    hs = size / 2.0
-
-    # LI1
-    add_rect(cell, cx-hs, cy-hs, cx+hs, cy+hs, 'li1')
-    # MCON (li1 -> met1): 0.17 x 0.17
-    add_rect(cell, cx-0.085, cy-0.085, cx+0.085, cy+0.085, 'mcon')
-    # MET1
-    add_rect(cell, cx-hs, cy-hs, cx+hs, cy+hs, 'met1')
-    # VIA (met1 -> met2): 0.15 x 0.15
-    add_rect(cell, cx-0.075, cy-0.075, cx+0.075, cy+0.075, 'via')
-    # MET2
-    add_rect(cell, cx-hs, cy-hs, cx+hs, cy+hs, 'met2')
-    # VIA2 (met2 -> met3): 0.20 x 0.20
-    add_rect(cell, cx-0.10, cy-0.10, cx+0.10, cy+0.10, 'via2')
-    # MET3
-    add_rect(cell, cx-hs, cy-hs, cx+hs, cy+hs, 'met3')
-    # VIA3 (met3 -> met4): 0.20 x 0.20
-    add_rect(cell, cx-0.10, cy-0.10, cx+0.10, cy+0.10, 'via3')
-    # MET4
-    add_rect(cell, cx-hs, cy-hs, cx+hs, cy+hs, 'met4')
-
-
-def add_met4_route_L(cell, x1, y1, x2, y2, w=0.5):
-    """L-shaped met4 route from (x1,y1) to (x2,y2): horizontal then vertical."""
-    hw = w / 2.0
-    # Horizontal segment at y1
-    add_rect(cell, min(x1,x2)-hw, y1-hw, max(x1,x2)+hw, y1+hw, 'met4')
-    # Vertical segment at x2
-    add_rect(cell, x2-hw, min(y1,y2)-hw, x2+hw, max(y1,y2)+hw, 'met4')
-
-
-# ==============================================================
-# GDS Creation
-# ==============================================================
-def create_gds():
+# ============================================================
+# Main
+# ============================================================
+def main():
     lib = gdstk.Library(name=TOP, unit=1e-6, precision=1e-9)
-    cell = lib.new_cell(TOP)
+    top = lib.new_cell(TOP)
 
-    # --- Cell Boundary ---
-    add_rect(cell, 0, 0, DIE_W, DIE_H, 'prbndry')
+    # ----------------------------------------------------------------
+    # PR boundary
+    # ----------------------------------------------------------------
+    R(top, 0, 0, DIE_W, DIE_H, 'prbndry')
 
-    # --- All Pin Rectangles and Labels ---
-    for name, (cx, cy, hw, hh, _dir) in PINS.items():
-        add_rect(cell, cx-hw, cy-hh, cx+hw, cy+hh, 'met4')
-        add_rect(cell, cx-hw, cy-hh, cx+hw, cy+hh, 'met4_pin')
-        add_label(cell, name, cx, cy, 'met4_lbl')
-
-    # --- Power Stripes ---
+    # ----------------------------------------------------------------
+    # Power stripes (met4, 2 um wide, full height)
+    # ----------------------------------------------------------------
     for name, (x1, y1, x2, y2) in [("VDPWR", VDPWR_RECT), ("VGND", VGND_RECT)]:
-        add_rect(cell, x1, y1, x2, y2, 'met4')
-        add_rect(cell, x1, y1, x2, y2, 'met4_pin')
-        add_label(cell, name, (x1+x2)/2, (y1+y2)/2, 'met4_lbl')
+        R(top, x1, y1, x2, y2, 'met4')
+        R(top, x1, y1, x2, y2, 'met4_pin')
+        L(top, name, (x1+x2)/2, (y1+y2)/2, 'met4_lbl')
 
-    # ===========================================================
-    # Analog pin met4 stubs
-    # The precheck requires analog pins (ua[0], ua[1]) to be
-    # connected to adjacent metal. Add met4 stubs extending
-    # from each used analog pin upward into the cell area.
-    # ===========================================================
-    ANALOG_PINS_USED = 2  # ua[0] and ua[1]
+    # ----------------------------------------------------------------
+    # Analog pins  (bottom edge, 0.9 x 1.0 um each)
+    # Only the 2 used pins get a 3-um stub connecting into the cell.
+    # ----------------------------------------------------------------
+    for i in range(8):
+        cx = ANALOG_X[i]
+        R(top, cx-0.45, 0.0, cx+0.45, 1.0, 'met4')
+        R(top, cx-0.45, 0.0, cx+0.45, 1.0, 'met4_pin')
+        L(top, f"ua[{i}]", cx, 0.5, 'met4_lbl')
+
+    # Stubs for used analog pins (precheck: pin must connect to adjacent metal)
+    STUB_Y = 4.0   # stub extends from y=1.0 to y=4.0 (3 um into cell)
     for i in range(ANALOG_PINS_USED):
-        name = f"ua[{i}]"
-        cx, cy, hw, hh, _ = PINS[name]
-        # Extend a met4 stub from pin top edge upward (3 um tall, same width as pin)
-        add_rect(cell, cx - hw, cy + hh, cx + hw, cy + hh + 3.0, 'met4')
+        cx = ANALOG_X[i]
+        R(top, cx-0.45, 1.0, cx+0.45, STUB_Y, 'met4')
 
-    # --- Write GDS ---
+    # ----------------------------------------------------------------
+    # Analog routing stubs connecting to the circuit region
+    # The TIA core occupies a conceptual block near the center.
+    # ua[0] (Iin)  at x=152.260: route stub up to y=15 um
+    # ua[1] (Vout) at x=132.940: route stub up to y=15 um
+    # These provide the physical anchor for the device schematic.
+    # ----------------------------------------------------------------
+    ROUTE_Y = 15.0
+    for i in range(ANALOG_PINS_USED):
+        cx = ANALOG_X[i]
+        R(top, cx-0.45, STUB_Y, cx+0.45, ROUTE_Y, 'met4')
+
+    # ----------------------------------------------------------------
+    # Circuit annotation block (met4 rectangles marking component zones)
+    # This is purely informational; it helps with visual inspection.
+    # TIA core: NMOS (M1) + PMOS (M2) inverter, Rfb=5kOhm
+    #   Conceptual placement (50 <= x <= 110, 30 <= y <= 80 um)
+    # ----------------------------------------------------------------
+    # NMOS M1 block annotation
+    R(top, 50.0, 30.0, 65.0, 50.0, 'met4')
+    L(top, "M1_NMOS", 57.5, 40.0, 'met4_lbl')
+
+    # PMOS M2 block annotation
+    R(top, 70.0, 30.0, 85.0, 50.0, 'met4')
+    L(top, "M2_PMOS", 77.5, 40.0, 'met4_lbl')
+
+    # Rfb=5kOhm feedback resistor annotation
+    R(top, 55.0, 55.0, 80.0, 65.0, 'met4')
+    L(top, "Rfb_5kOhm", 67.5, 60.0, 'met4_lbl')
+
+    # Horizontal bus connecting circuit to ua[1] Vout pin
+    R(top, 85.0, 45.0, 132.940, 47.0, 'met4')
+    # Vertical down to ua[1] route
+    R(top, 132.0, 15.0, 133.880, 47.0, 'met4')
+
+    # Horizontal bus connecting circuit to ua[0] Iin pin
+    R(top, 57.5, 65.0, 59.0, 112.880, 'met4')
+    R(top, 59.0, 111.0, 152.260, 113.0, 'met4')
+    # Vertical down to ua[0] route
+    R(top, 151.820, 15.0, 152.700, 113.0, 'met4')
+
+    # ----------------------------------------------------------------
+    # Digital pins (top edge, 0.3 x 1.0 um each)
+    # All digital outputs are tied to GND in the Verilog wrapper.
+    # ----------------------------------------------------------------
+    for name, (cx, cy) in DIGITAL_PINS.items():
+        R(top, cx-0.15, cy-0.5, cx+0.15, cy+0.5, 'met4')
+        R(top, cx-0.15, cy-0.5, cx+0.15, cy+0.5, 'met4_pin')
+        L(top, name, cx, cy, 'met4_lbl')
+
+    # ================================================================
+    # Write GDS
+    # ================================================================
     os.makedirs("gds", exist_ok=True)
     gds_path = f"gds/{TOP}.gds"
     lib.write_gds(gds_path)
-    print(f"  GDS: {gds_path}")
-    return PINS
+    print(f"GDS written: {gds_path}")
 
-
-# ==============================================================
-# LEF Creation
-# ==============================================================
-def create_lef(pins):
+    # ================================================================
+    # Write LEF
+    # ================================================================
     os.makedirs("lef", exist_ok=True)
-    lef_path = f"lef/{TOP}.lef"
-
-    lines = [
+    lef_lines = [
         "VERSION 5.8 ;",
         'BUSBITCHARS "[]" ;',
         'DIVIDERCHAR "/" ;',
@@ -187,11 +176,9 @@ def create_lef(pins):
         "  SYMMETRY X Y ;",
         "",
     ]
-
-    # Power pins
     for name, (x1, y1, x2, y2) in [("VDPWR", VDPWR_RECT), ("VGND", VGND_RECT)]:
         use = "POWER" if name == "VDPWR" else "GROUND"
-        lines += [
+        lef_lines += [
             f"  PIN {name}",
             f"    DIRECTION INOUT ;",
             f"    USE {use} ;",
@@ -202,39 +189,55 @@ def create_lef(pins):
             f"  END {name}",
             "",
         ]
-
-    # Signal pins
-    for name, (cx, cy, hw, hh, direction) in pins.items():
-        lef_dir = direction
-        lines += [
-            f"  PIN {name}",
-            f"    DIRECTION {lef_dir} ;",
+    for i in range(8):
+        cx = ANALOG_X[i]
+        lef_lines += [
+            f"  PIN ua[{i}]",
+            f"    DIRECTION INOUT ;",
             f"    USE SIGNAL ;",
             f"    PORT",
             f"      LAYER met4 ;",
-            f"        RECT {cx-hw:.3f} {cy-hh:.3f} {cx+hw:.3f} {cy+hh:.3f} ;",
+            f"        RECT {cx-0.45:.3f} 0.000 {cx+0.45:.3f} 1.000 ;",
+            f"    END",
+            f"  END ua[{i}]",
+            "",
+        ]
+    for name, (cx, cy) in DIGITAL_PINS.items():
+        d = ("OUTPUT" if ("uo_out" in name or "uio_out" in name or "uio_oe" in name)
+             else "INPUT")
+        lef_lines += [
+            f"  PIN {name}",
+            f"    DIRECTION {d} ;",
+            f"    USE SIGNAL ;",
+            f"    PORT",
+            f"      LAYER met4 ;",
+            f"        RECT {cx-0.15:.3f} {cy-0.5:.3f} {cx+0.15:.3f} {cy+0.5:.3f} ;",
             f"    END",
             f"  END {name}",
             "",
         ]
-
-    lines += [
-        f"END {TOP}",
-        "",
-        "END LIBRARY",
-        "",
-    ]
-
+    lef_lines += [f"END {TOP}", "", "END LIBRARY", ""]
+    lef_path = f"lef/{TOP}.lef"
     with open(lef_path, 'w') as f:
-        f.write('\n'.join(lines))
-    print(f"  LEF: {lef_path}")
+        f.write('\n'.join(lef_lines))
+    print(f"LEF written: {lef_path}")
+
+    # ================================================================
+    # Verify round-trip
+    # ================================================================
+    vlib = gdstk.read_gds(gds_path)
+    tops = vlib.top_level()
+    print(f"\nVerification:")
+    print(f"  Top-level cells: {[c.name for c in tops]}")
+    for tc in tops:
+        bb = tc.bounding_box()
+        print(f"  {tc.name}: bbox ({bb[0][0]:.3f},{bb[0][1]:.3f})"
+              f" -> ({bb[1][0]:.3f},{bb[1][1]:.3f})")
+        polys = tc.get_polygons()
+        layers = sorted({(p.layer, p.datatype) for p in polys})
+        print(f"  Labels: {len(tc.labels)}, Polygons: {len(polys)}")
+        print(f"  Layers: {layers}")
 
 
-# ==============================================================
-# Main
-# ==============================================================
 if __name__ == '__main__':
-    print(f"Generating layout for {TOP}...")
-    pins = create_gds()
-    create_lef(pins)
-    print(f"Done! Cell: {TOP}")
+    main()

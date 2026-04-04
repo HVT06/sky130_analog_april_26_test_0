@@ -1,0 +1,79 @@
+* =============================================================
+* Inverter-Based TIA -- DC Operating-Point Analysis
+* Sky130A PDK  (open_pdks, tt corner)
+* Top module : tt_um_hvt006_tia
+* =============================================================
+* Topology:
+*         VDD (1.8 V)
+*              |
+*              M2 (PMOS, W=4um L=150nm)
+*              |
+*  Iin --- Vin-+----------- Rf=5kOhm ----------- Vout
+*              | (gate of M1, M2)
+*              M1 (NMOS, W=2um L=150nm)
+*              |
+*             GND
+*
+* At DC with Iin=0, feedback Rf forces Vin=Vout (inverter trip point).
+* =============================================================
+
+.title TIA DC Operating Point -- Sky130A
+
+* ---- PDK slope parameters (Monte Carlo stubs) ----
+.param sky130_fd_pr__nfet_01v8__toxe_slope        = 0
+.param sky130_fd_pr__nfet_01v8__vth0_slope        = 0
+.param sky130_fd_pr__nfet_01v8__voff_slope        = 0
+.param sky130_fd_pr__nfet_01v8__toxe_slope1       = 0
+.param sky130_fd_pr__nfet_01v8__vth0_slope1       = 0
+.param sky130_fd_pr__nfet_01v8__voff_slope1       = 0
+.param sky130_fd_pr__pfet_01v8__toxe_slope        = 0
+.param sky130_fd_pr__pfet_01v8__vth0_slope        = 0
+.param sky130_fd_pr__pfet_01v8__voff_slope        = 0
+.param sky130_fd_pr__pfet_01v8__nfactor_slope     = 0
+.param sky130_fd_pr__pfet_01v8__toxe_slope1       = 0
+.param sky130_fd_pr__pfet_01v8__vth0_slope1       = 0
+.param sky130_fd_pr__pfet_01v8__voff_slope1       = 0
+.param sky130_fd_pr__pfet_01v8__nfactor_slope1    = 0
+.param sky130_fd_pr__pfet_01v8__wlod_diff         = 0
+.param sky130_fd_pr__pfet_01v8__kvth0_diff        = 0
+.param sky130_fd_pr__pfet_01v8__lkvth0_diff       = 0
+.param sky130_fd_pr__pfet_01v8__wkvth0_diff       = 0
+.param sky130_fd_pr__pfet_01v8__ku0_diff          = 0
+.param sky130_fd_pr__pfet_01v8__lku0_diff         = 0
+.param sky130_fd_pr__pfet_01v8__wku0_diff         = 0
+.param sky130_fd_pr__pfet_01v8__kvsat_diff        = 0
+.param mc_mm_switch = 0
+.param mc_pr_switch = 0
+
+* ---- PDK models (tt corner, open_pdks) ---------------------
+.include "/home/hvt06/Downloads/open_pdks/sky130/sky130A/libs.ref/sky130_fd_pr/spice/sky130_fd_pr__nfet_01v8__tt.pm3.spice"
+.include "/home/hvt06/Downloads/open_pdks/sky130/sky130A/libs.ref/sky130_fd_pr/spice/sky130_fd_pr__pfet_01v8__tt.corner.spice"
+
+* ---- Supply ------------------------------------------------
+Vdd vdd 0 1.8
+
+* ---- TIA flat netlist -------------------------------------
+* NMOS M1: drain=vout  gate=vin  source=0(gnd)  bulk=0
+XM1 vout vin 0 0  sky130_fd_pr__nfet_01v8 l=0.15u w=2.0u
+* PMOS M2: drain=vout  gate=vin  source=vdd     bulk=vdd
+XM2 vout vin vdd vdd  sky130_fd_pr__pfet_01v8 l=0.15u w=4.0u
+* Feedback resistor 5 kOhm
+Rfb vout vin 5000
+* Photocurrent source (0 for bias point)
+Iin 0 vin DC 0
+* Photodiode junction capacitance 100fF
+Cpd vin 0 100f
+
+.control
+  set noaskquit
+  op
+  echo "DC Operating Point:"
+  print v(vin) v(vout) i(Vdd)
+  dc Iin -100u 100u 1u
+  write results/dc_tia.raw
+  wrdata results/dc_tia.tsv  v(vin) v(vout)
+  echo "DC sweep written -> results/dc_tia.tsv"
+  quit
+.endc
+
+.end

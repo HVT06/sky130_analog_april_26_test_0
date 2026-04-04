@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="760.0" height="425.0"
+     viewBox="0 0 760.0 425.0">
+  <rect width="100%" height="100%" fill="#1a1a2e"/>
+  <text x="380.0" y="18" font-family="sans-serif" font-size="16" fill="#222" text-anchor="middle" font-weight="bold">tt_um_hvt006_cs_amp — Ring Oscillator (zoomed)</text>
+  <g transform="translate(0, 25)">
+    <path d="M 157.40,226.20 L 209.40,226.20 L 209.40,219.40 L 157.40,219.40 Z M 227.80,226.20 L 279.80,226.20 L 279.80,219.40 L 227.80,219.40 Z M 298.20,226.20 L 350.20,226.20 L 350.20,219.40 L 298.20,219.40 Z M 368.60,226.20 L 420.60,226.20 L 420.60,219.40 L 368.60,219.40 Z M 439.00,226.20 L 482.40,226.20 L 482.40,219.40 L 439.00,219.40 Z M 432.20,229.60 L 445.80,229.60 L 445.80,216.00 L 432.20,216.00 Z M 132.20,229.60 L 145.80,229.60 L 145.80,216.00 L 132.20,216.00 Z M 549.20,229.60 L 562.80,229.60 L 562.80,216.00 L 549.20,216.00 Z" fill="#00BFFF" fill-opacity="0.55" stroke="#0099cc" stroke-width="0.5"/>
+    <path d="M 435.60,226.20 L 442.40,226.20 L 442.40,219.40 L 435.60,219.40 Z M 135.60,226.20 L 142.40,226.20 L 142.40,219.40 L 135.60,219.40 Z M 552.60,226.20 L 559.40,226.20 L 559.40,219.40 L 552.60,219.40 Z" fill="#FFD700" fill-opacity="0.7" stroke="#ccaa00" stroke-width="0.5"/>
+    <path d="M 432.20,229.60 L 445.80,229.60 L 445.80,216.00 L 432.20,216.00 Z M 132.20,229.60 L 145.80,229.60 L 145.80,216.00 L 132.20,216.00 Z M 433.40,228.40 L 444.60,228.40 L 444.60,134.40 L 433.40,134.40 Z M 133.40,145.60 L 444.60,145.60 L 444.60,134.40 L 133.40,134.40 Z M 133.40,228.40 L 144.60,228.40 L 144.60,134.40 L 133.40,134.40 Z M 80.00,171.20 L 626.40,171.20 L 626.40,152.00 L 80.00,152.00 Z M 80.00,280.00 L 626.40,280.00 L 626.40,260.80 L 80.00,260.80 Z M 110.00,171.60 L 130.00,171.60 L 130.00,151.60 L 110.00,151.60 Z M 110.00,280.40 L 130.00,280.40 L 130.00,260.40 L 110.00,260.40 Z M 133.40,4440.00 L 144.60,4440.00 L 144.60,222.80 L 133.40,222.80 Z M 549.20,229.60 L 562.80,229.60 L 562.80,216.00 L 549.20,216.00 Z M 550.40,4440.00 L 561.60,4440.00 L 561.60,222.80 L 550.40,222.80 Z" fill="#4169E1" fill-opacity="0.5" stroke="#2a4a9e" stroke-width="0.5"/>
+    <rect x="10" y="380.0" width="10" height="10" fill="#8B4513" opacity="0.8" stroke="#fff" stroke-width="0.5"/>
+    <text x="24" y="389.0" font-family="sans-serif" font-size="9" fill="#cccccc">nwell</text>
+    <rect x="190" y="380.0" width="10" height="10" fill="#228B22" opacity="0.8" stroke="#fff" stroke-width="0.5"/>
+    <text x="204" y="389.0" font-family="sans-serif" font-size="9" fill="#cccccc">diff</text>
+    <rect x="370" y="380.0" width="10" height="10" fill="#FF0000" opacity="0.8" stroke="#fff" stroke-width="0.5"/>
+    <text x="384" y="389.0" font-family="sans-serif" font-size="9" fill="#cccccc">poly</text>
+    <rect x="550" y="380.0" width="10" height="10" fill="#FFD700" opacity="0.8" stroke="#fff" stroke-width="0.5"/>
+    <text x="564" y="389.0" font-family="sans-serif" font-size="9" fill="#cccccc">licon</text>
+    <rect x="730" y="380.0" width="10" height="10" fill="#00CED1" opacity="0.8" stroke="#fff" stroke-width="0.5"/>
+    <text x="744" y="389.0" font-family="sans-serif" font-size="9" fill="#cccccc">nsdm</text>
+    <rect x="10" y="396.0" width="10" height="10" fill="#FF69B4" opacity="0.8" stroke="#fff" stroke-width="0.5"/>
+    <text x="24" y="405.0" font-family="sans-serif" font-size="9" fill="#cccccc">psdm</text>
+    <rect x="190" y="396.0" width="10" height="10" fill="#9400D3" opacity="0.8" stroke="#fff" stroke-width="0.5"/>
+    <text x="204" y="405.0" font-family="sans-serif" font-size="9" fill="#cccccc">npc</text>
+    <rect x="370" y="396.0" width="10" height="10" fill="#00BFFF" opacity="0.8" stroke="#fff" stroke-width="0.5"/>
+    <text x="384" y="405.0" font-family="sans-serif" font-size="9" fill="#cccccc">li1</text>
+    <rect x="550" y="396.0" width="10" height="10" fill="#FFD700" opacity="0.8" stroke="#fff" stroke-width="0.5"/>
+    <text x="564" y="405.0" font-family="sans-serif" font-size="9" fill="#cccccc">mcon</text>
+    <rect x="730" y="396.0" width="10" height="10" fill="#4169E1" opacity="0.8" stroke="#fff" stroke-width="0.5"/>
+    <text x="744" y="405.0" font-family="sans-serif" font-size="9" fill="#cccccc">met1</text>
+  </g>
+</svg>

@@ -1,0 +1,59 @@
+* =============================================================
+* Inverter-Based TIA -- Transient Response
+* Sky130A PDK  (open_pdks, tt corner)
+* =============================================================
+* Stimulus: PULSE 0->10uA, tr=50ps, pw=4ns, period=10ns
+* Sim time: 20ns, step=2ps
+* =============================================================
+
+.title TIA Transient -- Sky130A
+
+.param sky130_fd_pr__nfet_01v8__toxe_slope        = 0
+.param sky130_fd_pr__nfet_01v8__vth0_slope        = 0
+.param sky130_fd_pr__nfet_01v8__voff_slope        = 0
+.param sky130_fd_pr__nfet_01v8__toxe_slope1       = 0
+.param sky130_fd_pr__nfet_01v8__vth0_slope1       = 0
+.param sky130_fd_pr__nfet_01v8__voff_slope1       = 0
+.param sky130_fd_pr__pfet_01v8__toxe_slope        = 0
+.param sky130_fd_pr__pfet_01v8__vth0_slope        = 0
+.param sky130_fd_pr__pfet_01v8__voff_slope        = 0
+.param sky130_fd_pr__pfet_01v8__nfactor_slope     = 0
+.param sky130_fd_pr__pfet_01v8__toxe_slope1       = 0
+.param sky130_fd_pr__pfet_01v8__vth0_slope1       = 0
+.param sky130_fd_pr__pfet_01v8__voff_slope1       = 0
+.param sky130_fd_pr__pfet_01v8__nfactor_slope1    = 0
+.param sky130_fd_pr__pfet_01v8__wlod_diff         = 0
+.param sky130_fd_pr__pfet_01v8__kvth0_diff        = 0
+.param sky130_fd_pr__pfet_01v8__lkvth0_diff       = 0
+.param sky130_fd_pr__pfet_01v8__wkvth0_diff       = 0
+.param sky130_fd_pr__pfet_01v8__ku0_diff          = 0
+.param sky130_fd_pr__pfet_01v8__lku0_diff         = 0
+.param sky130_fd_pr__pfet_01v8__wku0_diff         = 0
+.param sky130_fd_pr__pfet_01v8__kvsat_diff        = 0
+.param mc_mm_switch = 0
+.param mc_pr_switch = 0
+
+.include "/home/hvt06/Downloads/open_pdks/sky130/sky130A/libs.ref/sky130_fd_pr/spice/sky130_fd_pr__nfet_01v8__tt.pm3.spice"
+.include "/home/hvt06/Downloads/open_pdks/sky130/sky130A/libs.ref/sky130_fd_pr/spice/sky130_fd_pr__pfet_01v8__tt.corner.spice"
+
+Vdd vdd 0 1.8
+XM1 vout vin 0   0   sky130_fd_pr__nfet_01v8 l=0.15u w=2.0u
+XM2 vout vin vdd vdd sky130_fd_pr__pfet_01v8 l=0.15u w=4.0u
+Rfb vout vin 5000
+Cpd vin 0 100f
+* Photocurrent PULSE(I_low I_high Td Tr Tf Pw Period)
+Iin 0 vin PULSE(0 10u 1n 50p 50p 4n 10n)
+
+.control
+  set noaskquit
+  tran 2p 20n
+  write results/tran_tia.raw
+  wrdata results/tran_tia.tsv  time v(vin) v(vout)
+  echo "Transient written -> results/tran_tia.tsv"
+  meas tran Vout_hi MAX v(vout) FROM=1n TO=7n
+  meas tran Vout_lo MIN v(vout) FROM=1n TO=7n
+  print Vout_hi Vout_lo
+  quit
+.endc
+
+.end

@@ -5,7 +5,7 @@
 
 `default_nettype none
 
-module tt_um_hvt006_cs_amp (
+module tt_um_hvt006_tia (
     input  wire       VGND,
     input  wire       VDPWR,    // 1.8v power supply
 //    input  wire       VAPWR,    // 3.3v power supply

@@ -1,0 +1,59 @@
+* =============================================================
+* Inverter-Based TIA -- Input-Referred Noise Analysis
+* Sky130A PDK  (open_pdks, tt corner)
+* inoise  = input-referred current noise PSD  [A^2/Hz]
+* onoise  = output voltage noise PSD          [V^2/Hz]
+* Thermal floor from Rf=5kOhm:
+*   sqrt(4kT/Rf) = sqrt(4*1.38e-23*300/5000) ~ 1.82 pA/sqrt(Hz)
+* =============================================================
+
+.title TIA Noise -- Sky130A
+
+.param sky130_fd_pr__nfet_01v8__toxe_slope        = 0
+.param sky130_fd_pr__nfet_01v8__vth0_slope        = 0
+.param sky130_fd_pr__nfet_01v8__voff_slope        = 0
+.param sky130_fd_pr__nfet_01v8__toxe_slope1       = 0
+.param sky130_fd_pr__nfet_01v8__vth0_slope1       = 0
+.param sky130_fd_pr__nfet_01v8__voff_slope1       = 0
+.param sky130_fd_pr__pfet_01v8__toxe_slope        = 0
+.param sky130_fd_pr__pfet_01v8__vth0_slope        = 0
+.param sky130_fd_pr__pfet_01v8__voff_slope        = 0
+.param sky130_fd_pr__pfet_01v8__nfactor_slope     = 0
+.param sky130_fd_pr__pfet_01v8__toxe_slope1       = 0
+.param sky130_fd_pr__pfet_01v8__vth0_slope1       = 0
+.param sky130_fd_pr__pfet_01v8__voff_slope1       = 0
+.param sky130_fd_pr__pfet_01v8__nfactor_slope1    = 0
+.param sky130_fd_pr__pfet_01v8__wlod_diff         = 0
+.param sky130_fd_pr__pfet_01v8__kvth0_diff        = 0
+.param sky130_fd_pr__pfet_01v8__lkvth0_diff       = 0
+.param sky130_fd_pr__pfet_01v8__wkvth0_diff       = 0
+.param sky130_fd_pr__pfet_01v8__ku0_diff          = 0
+.param sky130_fd_pr__pfet_01v8__lku0_diff         = 0
+.param sky130_fd_pr__pfet_01v8__wku0_diff         = 0
+.param sky130_fd_pr__pfet_01v8__kvsat_diff        = 0
+.param mc_mm_switch = 0
+.param mc_pr_switch = 0
+
+.include "/home/hvt06/Downloads/open_pdks/sky130/sky130A/libs.ref/sky130_fd_pr/spice/sky130_fd_pr__nfet_01v8__tt.pm3.spice"
+.include "/home/hvt06/Downloads/open_pdks/sky130/sky130A/libs.ref/sky130_fd_pr/spice/sky130_fd_pr__pfet_01v8__tt.corner.spice"
+
+Vdd vdd 0 1.8
+XM1 vout vin 0   0   sky130_fd_pr__nfet_01v8 l=0.15u w=2.0u
+XM2 vout vin vdd vdd sky130_fd_pr__pfet_01v8 l=0.15u w=4.0u
+Rfb vout vin 5000
+Cpd vin 0 100f
+Iin 0 vin DC 0 AC 1
+
+.control
+  set noaskquit
+  op
+  noise V(vout) Iin dec 20 1MEG 10G
+  setplot noise1
+  wrdata results/noise_tia.tsv  frequency inoise_spectrum onoise_spectrum
+  write results/noise_tia.raw
+  echo "Noise written -> results/noise_tia.tsv and results/noise_tia.raw"
+  echo "Rf thermal floor ~ 1.82 pA/sqrt(Hz)"
+  quit
+.endc
+
+.end

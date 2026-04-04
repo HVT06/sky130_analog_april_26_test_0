@@ -2,9 +2,9 @@ VERSION 5.8 ;
 BUSBITCHARS "[]" ;
 DIVIDERCHAR "/" ;
 
-MACRO tt_um_hvt006_cs_amp
+MACRO tt_um_hvt006_tia
   CLASS BLOCK ;
-  FOREIGN tt_um_hvt006_cs_amp ;
+  FOREIGN tt_um_hvt006_tia ;
   ORIGIN 0.000 0.000 ;
   SIZE 161.000 BY 225.760 ;
   SYMMETRY X Y ;
@@ -486,6 +486,6 @@ MACRO tt_um_hvt006_cs_amp
     END
   END uio_oe[7]
 
-END tt_um_hvt006_cs_amp
+END tt_um_hvt006_tia
 
 END LIBRARY

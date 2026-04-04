@@ -1,0 +1,62 @@
+* =============================================================
+* Inverter-Based TIA -- AC Frequency Response
+* Sky130A PDK  (open_pdks, tt corner)
+* =============================================================
+* |Zt(f)| = |Vout/Iin|  [Ohm]
+* AC source amplitude = 1A  =>  |Vout| = |Zt| numerically
+* Sweep: 1MHz to 100GHz, 20 pts/decade
+* =============================================================
+
+.title TIA AC Analysis -- Sky130A
+
+.param sky130_fd_pr__nfet_01v8__toxe_slope        = 0
+.param sky130_fd_pr__nfet_01v8__vth0_slope        = 0
+.param sky130_fd_pr__nfet_01v8__voff_slope        = 0
+.param sky130_fd_pr__nfet_01v8__toxe_slope1       = 0
+.param sky130_fd_pr__nfet_01v8__vth0_slope1       = 0
+.param sky130_fd_pr__nfet_01v8__voff_slope1       = 0
+.param sky130_fd_pr__pfet_01v8__toxe_slope        = 0
+.param sky130_fd_pr__pfet_01v8__vth0_slope        = 0
+.param sky130_fd_pr__pfet_01v8__voff_slope        = 0
+.param sky130_fd_pr__pfet_01v8__nfactor_slope     = 0
+.param sky130_fd_pr__pfet_01v8__toxe_slope1       = 0
+.param sky130_fd_pr__pfet_01v8__vth0_slope1       = 0
+.param sky130_fd_pr__pfet_01v8__voff_slope1       = 0
+.param sky130_fd_pr__pfet_01v8__nfactor_slope1    = 0
+.param sky130_fd_pr__pfet_01v8__wlod_diff         = 0
+.param sky130_fd_pr__pfet_01v8__kvth0_diff        = 0
+.param sky130_fd_pr__pfet_01v8__lkvth0_diff       = 0
+.param sky130_fd_pr__pfet_01v8__wkvth0_diff       = 0
+.param sky130_fd_pr__pfet_01v8__ku0_diff          = 0
+.param sky130_fd_pr__pfet_01v8__lku0_diff         = 0
+.param sky130_fd_pr__pfet_01v8__wku0_diff         = 0
+.param sky130_fd_pr__pfet_01v8__kvsat_diff        = 0
+.param mc_mm_switch = 0
+.param mc_pr_switch = 0
+
+.include "/home/hvt06/Downloads/open_pdks/sky130/sky130A/libs.ref/sky130_fd_pr/spice/sky130_fd_pr__nfet_01v8__tt.pm3.spice"
+.include "/home/hvt06/Downloads/open_pdks/sky130/sky130A/libs.ref/sky130_fd_pr/spice/sky130_fd_pr__pfet_01v8__tt.corner.spice"
+
+Vdd vdd 0 1.8
+XM1 vout vin 0   0   sky130_fd_pr__nfet_01v8 l=0.15u w=2.0u
+XM2 vout vin vdd vdd sky130_fd_pr__pfet_01v8 l=0.15u w=4.0u
+Rfb vout vin 5000
+Iin 0 vin DC 0 AC 1
+Cpd vin 0 100f
+
+.control
+  set noaskquit
+  op
+  ac dec 20 1MEG 100G
+  let Zt_ohm = abs(v(vout))
+  let Zt_dB  = 20*log10(abs(v(vout)))
+  write results/ac_tia.raw
+  wrdata results/ac_tia.tsv  frequency Zt_dB Zt_ohm
+  echo "AC sweep written -> results/ac_tia.tsv"
+  meas ac Zt_1M FIND abs(v(vout)) AT=1MEG
+  echo "Transimpedance at 1 MHz:"
+  print Zt_1M
+  quit
+.endc
+
+.end
