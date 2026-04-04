@@ -1,0 +1,40 @@
+* ============================================================
+* TT sky130A — Inverter-Based Transimpedance Amplifier
+* Schematic netlist for LVS comparison
+*
+* Topology:
+*   ua[0] (Iin / Vin node) ---|gate|--- ua[1] (Vout)
+*                      sky130_fd_sc_hd__inv_6
+*   ua[1] ---[Rfb 5 kOhm poly resistor]--- ua[0]
+*
+* Power:  VPWR (VDD, 1.8 V)  |  VGND (GND, 0 V)
+* Analog pins (met4 ua[] pads):
+*   ua[0] : Iin  — inverter A / TIA input node
+*   ua[1] : Vout — inverter Y / TIA output node
+*
+* inv_6 pin order:  A  VGND  VNB  VPB  VPWR  Y
+* ============================================================
+
+.subckt tt_um_hvt006_tia ua0 ua1 VPWR VGND
+
+* ---- Inverter gain stage ----
+* sky130_fd_sc_hd__inv_6: A=ua0, VGND=VGND, VNB=VGND, VPB=VPWR, VPWR=VPWR, Y=ua1
+*   Internally contains 6x pfet_01v8_hvt (W=1u, L=150nm) and
+*                        6x nfet_01v8    (W=650nm, L=150nm)
+XINV ua0 VGND VGND VPWR VPWR ua1 sky130_fd_sc_hd__inv_6
+
+* ---- Feedback resistor (Rfb) ----
+* Poly high-ohm resistor sky130_fd_pr__res_high_po_0p35
+* Layout: W=0.35 um, L_body=1.20 um (+ 2x head=0.35 um)
+* R = Rsh * (L_body/W) + 2 * Rcon
+*   = 1112 * (1.20/0.35) + 2 * 590
+*   = 3812 + 1180 = 4992 Ohm  ≈ 5 kOhm
+* Simplified as ideal 5 kOhm resistor for LVS connectivity check
+Rfb ua1 ua0 5000
+
+* ---- Power decoupling (tap cells) ----
+* Two sky130_fd_sc_hd__tapvpwrvgnd_1 cells — no active devices
+XTAP1 VGND VPWR sky130_fd_sc_hd__tapvpwrvgnd_1
+XTAP2 VGND VPWR sky130_fd_sc_hd__tapvpwrvgnd_1
+
+.ends tt_um_hvt006_tia

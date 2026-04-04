@@ -312,14 +312,18 @@ def main():
     place_cell(INV_NAME, X_INV,  Y_BASE)
     place_cell(TAP_NAME, X_TAP2, Y_BASE)
 
-    # Power rails (met1, extended from taps through inv cell)
+    # Power rails (met1) – extended left to each stripe centre so met1
+    # connectivity spans from the standard cells all the way to the via stacks
+    # that sit on the met4 VDD/GND stripes.
     rail_x1 = X_TAP1 - 0.1
     rail_x2 = X_TAP2 + TAP_W + 0.1
     rail_hw  = 0.24
-    # VDD met1 rail
-    R(top, rail_x1, VPW_ABS[1]-rail_hw, rail_x2, VPW_ABS[1]+rail_hw, 'met1')
-    # GND met1 rail
-    R(top, rail_x1, VGN_ABS[1]-rail_hw, rail_x2, VGN_ABS[1]+rail_hw, 'met1')
+    _vdd_sx = (VDPWR_RECT[0] + VDPWR_RECT[2]) / 2.0   # 2.0
+    _gnd_sx = (VGND_RECT[0]  + VGND_RECT[2])  / 2.0   # 5.5
+    # VDD met1 rail: from VDD stripe centre to right rail edge
+    R(top, _vdd_sx - rail_hw, VPW_ABS[1]-rail_hw, rail_x2, VPW_ABS[1]+rail_hw, 'met1')
+    # GND met1 rail: from GND stripe centre to right rail edge
+    R(top, _gnd_sx - rail_hw, VGN_ABS[1]-rail_hw, rail_x2, VGN_ABS[1]+rail_hw, 'met1')
 
     # ================================================================
     # 2. Poly high-ohm resistor Rfb = 5 kOhm
@@ -359,10 +363,10 @@ def main():
     r1x, r1y = r1_pos
     res_top_y = RES_Y + HEAD + L_BODY + HEAD
 
-    # met1 via stack at Y pin
-    via_stack(top, y_x, y_y, 'li1', 'met1')
-
     # met1 route from Y up to a met1 channel
+    # NOTE: SC inv_6 already provides li1+mcon+met1 at the Y output pin.
+    # Adding a manual via_stack here causes li.3 (li1 spacing) violations.
+    # The met1 wire below connects directly to the SC's existing met1 at Y.
     m1_ch_y = res_top_y + 0.8  # met1 routing channel above resistor
     R(top, y_x - m1_hw, y_y, y_x + m1_hw, m1_ch_y, 'met1')
 
@@ -378,22 +382,17 @@ def main():
     vdd_y = VPW_ABS[1]
     vss_y = VGN_ABS[1]
 
-    # Via stacks from met1 power rails to met4 power stripes
-    # (one via tower per rail, close to die left edge)
-    VDD_STRIPE_X = (VDPWR_RECT[0] + VDPWR_RECT[2]) / 2.0   # =2.0
-    GND_STRIPE_X = (VGND_RECT[0]  + VGND_RECT[2])  / 2.0   # =5.5
+    # Via stacks placed DIRECTLY on their respective met4 stripes.
+    # This avoids routing met4 horizontally across the other power stripe
+    # (which would create a VDD-GND short on met4).
+    VDD_STRIPE_X = _vdd_sx   # 2.0 – centre of VDPWR stripe (x=1..3)
+    GND_STRIPE_X = _gnd_sx   # 5.5 – centre of VGND  stripe (x=4.5..6.5)
 
-    # VDD connection point: junction of met1 rail and intermediate routing column
-    vdd_cx = rail_x1 + 1.0   # somewhere on the power rail
-    via_stack(top, vdd_cx, vdd_y, 'met1', 'met4')
-    # met4 horizontal from via to power stripe center
-    R(top, min(VDD_STRIPE_X, vdd_cx)-0.25, vdd_y-0.25,
-           max(VDD_STRIPE_X, vdd_cx)+0.25, vdd_y+0.25, 'met4')
+    # VDD: via stack at stripe centre; met4 pad (±0.3um) stays inside x=1..3
+    via_stack(top, VDD_STRIPE_X, vdd_y, 'met1', 'met4')
 
-    # GND connection
-    via_stack(top, vdd_cx, vss_y, 'met1', 'met4')
-    R(top, min(GND_STRIPE_X, vdd_cx)-0.25, vss_y-0.25,
-           max(GND_STRIPE_X, vdd_cx)+0.25, vss_y+0.25, 'met4')
+    # GND: via stack at stripe centre; met4 pad (±0.3um) stays inside x=4.5..6.5
+    via_stack(top, GND_STRIPE_X, vss_y, 'met1', 'met4')
 
     # VDD met4 stripe (vertical)
     R(top, *VDPWR_RECT[:2], *VDPWR_RECT[2:], 'met4')

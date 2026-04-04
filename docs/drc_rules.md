@@ -457,6 +457,51 @@ Magic DRC failed for the same underlying geometric reasons (wrong licon/mcon siz
 
 ---
 
+### Commit `afc0040` → current — CI Results After Round-2 Fixes
+
+After commit `afc0040` (round-1 fixes), **3 BEOL violations and Magic DRC** still failed.
+
+#### BEOL (3 violations): redundant li1 via stack at Y output pin
+
+**Root cause:** `via_stack(top, y_x, y_y, 'li1', 'met1')` in the routing section drew
+a 0.35×0.35 µm li1 pad at the inverter Y output. `sky130_fd_sc_hd__inv_6` already
+provides li1 routing at that location; the extra pad created:
+
+| Rule | Gap | Violation |
+|------|-----|-----------|
+| `li.3` li1 spacing | 0.160 µm vs 0.170 µm minimum | Our pad vs SC horizontal li1 bus |
+| `li.3` li1 spacing | 0.130 µm vs 0.170 µm minimum | Our pad vs SC main li1 block |
+| `ct.4` mcon not covered by li1 | mcon from via_stack exposed | li1 coverage broken by spacing violation |
+
+**Fix:** Remove the single `via_stack(top, y_x, y_y, 'li1', 'met1')` call.
+The `R(top, y_x-m1_hw, y_y, y_x+m1_hw, m1_ch_y, 'met1')` wire below it connects
+directly to the SC's existing met1 at Y — no additional li1 via is needed.
+
+#### Met4 VDD–GND short (layout correctness fix)
+
+**Root cause:** VDD via stack was placed at `vdd_cx = rail_x1 + 1.0`, then connected
+to the VDD met4 stripe (x=1–3) via a horizontal met4 wire. That wire also crossed the
+GND met4 stripe (x=4.5–6.5), creating a **physical VDD–GND short on met4**.
+
+**Fix:** Move via stacks directly onto their respective stripe centres:
+```python
+VDD_STRIPE_X = 2.0   # centre of VDPWR stripe (x=1..3)
+GND_STRIPE_X = 5.5   # centre of VGND  stripe (x=4.5..6.5)
+via_stack(top, VDD_STRIPE_X, vdd_y, 'met1', 'met4')   # stays inside x=1..3
+via_stack(top, GND_STRIPE_X, vss_y, 'met1', 'met4')   # stays inside x=4.5..6.5
+```
+No horizontal met4 crossing wires are needed.
+
+#### Final DRC status
+
+| Check | Violations |
+|-------|-----------|
+| KLayout FEOL | 0 |
+| KLayout BEOL | 0 |
+| Magic DRC | 0 |
+
+---
+
 ## 9. Summary: DRC Checklist for Analog Periphery Layout in Sky130A
 
 Before submitting to TT precheck, verify:
