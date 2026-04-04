@@ -413,6 +413,10 @@ def main():
 
     # met1 via stack at r1 in li1, lift to met1
     via_stack(top, r1x, r1y, 'li1', 'met1')
+    # FIX: vertical met1 wire connecting r1 met1 pad (top at r1y+0.175=36.100)
+    # to the horizontal bar at m1_ch_y=36.900. Without this there was a 0.660 um
+    # gap leaving the resistor top terminal r1 floating.
+    R(top, r1x - m1_hw, r1y, r1x + m1_hw, m1_ch_y, 'met1')
     # met1 horizontal from r1 col to Y col at channel height
     R(top, min(r1x, y_x) - m1_hw, m1_ch_y - m1_hw,
            max(r1x, y_x) + m1_hw, m1_ch_y + m1_hw, 'met1')

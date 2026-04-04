@@ -329,7 +329,7 @@ Verified by Python GDS geometry audit (`generate_layout.py` + `gdstk`):
 | licon | 36    | 34 from std cells + 2 from resistor terminals |
 | li1   | 16    | SC mesh + feedback routing |
 | mcon  | 19    | All 0.17×0.17 µm (ct.1 PASS) |
-| met1  | 17    | VDD/GND rails + signal routing |
+| met1  | 20    | VDD/GND rails + signal routing + r1 stub |
 | via   | 4     | met1→met2 |
 | met2  | 4     | Intermediate routing |
 | via2  | 4     | met2→met3 |
@@ -457,9 +457,54 @@ Met1 VDD/GND rails now start from `_vdd_sx` (2.0) and `_gnd_sx` (5.5) respective
 ensuring met1 connectivity from the standard-cell power pins all the way to the
 via stacks on the met4 stripes.
 
+### Fix 4 — Resistor r1 terminal floating (0.660 µm gap)
+
+**Root cause:** The r1 (resistor top terminal) met1 pad ended at y=36.100, but the
+horizontal met1 channel routing bar started at y=36.760 — leaving a 0.660 µm gap.
+The r1 terminal was electrically floating, so the feedback path was open → ua[0]
+and ua[1] were disconnected in the actual silicon.
+
+**Detection:** This was discovered during post-layout simulation debugging when the
+user noticed the resistor appeared unconnected. Magic LVS extraction showed a warning
+"ua[0] and ua[1] shorted" after the fix, which is actually correct — the poly
+resistor physically bridges them.
+
+**Fix:** Added a vertical met1 stub from (r1x-m1_hw, r1y) to (r1x+m1_hw, m1_ch_y)
+immediately after the r1 `via_stack` call in `generate_layout.py`:
+```python
+R(top, r1x-m1_hw, r1y, r1x+m1_hw, m1_ch_y, 'met1')  # NEW: vertical stub
+```
+
+This connects the r1 met1 pad (at y=36.100) up to the channel bar (at y=36.760),
+completing the feedback path.
+
+**Verification:** GDS polygon count increased from 19 met1 to 20 met1. Re-ran
+ngspice simulations and all corners converged correctly with expected Zt and BW.
+
 ---
 
-## 7. Recommendations for Full Netgen LVS
+## 7. Post-Layout Simulation Results
+
+Full simulation results (15 corners + noise + transient + 200 MC runs) are documented
+in [`docs/sim_report.md`](sim_report.md).
+
+**Key findings:**
+
+| Parameter | Min (SS, 27°C) | Typ (TT, 27°C) | Max (FF, 85°C) | Unit |
+|-----------|----------------|----------------|----------------|------|
+| Transimpedance (DC) | 2076 | 3776 | 4167 | Ω |
+| 3-dB Bandwidth | 0.52 | 1.26 | 1.82 | GHz |
+| Input-referred noise @ BW | — | 20.9 | — | pA/√Hz |
+| Rise time (10%–90%) | — | 253 | — | ps |
+
+All simulations use the Magic-extracted netlist with an ideal 5 kΩ resistor model
+(poly resistor not extracted by Magic without `lvsrules`).
+
+**Plots:** See `sim/results/` for corner, MC, noise, and transient plots.
+
+---
+
+## 8. Recommendations for Full Netgen LVS
 
 For a complete LVS using `netgen`, the following would be needed:
 
