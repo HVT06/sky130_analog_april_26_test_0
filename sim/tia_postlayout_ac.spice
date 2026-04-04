@@ -1,0 +1,102 @@
+* =============================================================
+* Inverter-Based TIA -- Post-Layout AC Analysis
+* Uses Magic-extracted netlist (lvs/tt_um_hvt006_tia_layout.spice)
+* Sky130A PDK  (tt corner)
+* =============================================================
+* All device sizing from layout extraction:
+*   6x sky130_fd_pr__pfet_01v8_hvt  W=1.0um L=0.15um
+*   6x sky130_fd_pr__nfet_01v8      W=0.65um L=0.15um
+*   Rfb = 5000 Ohm (ideal, poly resistor connectivity only)
+* =============================================================
+
+.title TIA Post-Layout AC Analysis
+
+* ---- PDK model files ----
+.include "/home/hvt06/Downloads/open_pdks/sky130/sky130A/libs.ref/sky130_fd_pr/spice/sky130_fd_pr__nfet_01v8__tt.pm3.spice"
+.include "/home/hvt06/Downloads/open_pdks/sky130/sky130A/libs.ref/sky130_fd_pr/spice/sky130_fd_pr__pfet_01v8_hvt__tt.pm3.spice"
+
+* ---- Monte Carlo / slope params (all disabled for TT corner) ----
+.param mc_mm_switch = 0
+.param mc_pr_switch = 0
+.param MC_MM_SWITCH = 0
+.param MC_PR_SWITCH = 0
+* nfet_01v8 slope params
+.param sky130_fd_pr__nfet_01v8__toxe_slope        = 0
+.param sky130_fd_pr__nfet_01v8__vth0_slope        = 0
+.param sky130_fd_pr__nfet_01v8__voff_slope        = 0
+.param sky130_fd_pr__nfet_01v8__toxe_slope1       = 0
+.param sky130_fd_pr__nfet_01v8__vth0_slope1       = 0
+.param sky130_fd_pr__nfet_01v8__voff_slope1       = 0
+* pfet_01v8_hvt slope params
+.param sky130_fd_pr__pfet_01v8_hvt__toxe_slope        = 0
+.param sky130_fd_pr__pfet_01v8_hvt__vth0_slope        = 0
+.param sky130_fd_pr__pfet_01v8_hvt__voff_slope        = 0
+.param sky130_fd_pr__pfet_01v8_hvt__nfactor_slope     = 0
+.param sky130_fd_pr__pfet_01v8_hvt__toxe_slope1       = 0
+.param sky130_fd_pr__pfet_01v8_hvt__vth0_slope1       = 0
+.param sky130_fd_pr__pfet_01v8_hvt__voff_slope1       = 0
+.param sky130_fd_pr__pfet_01v8_hvt__nfactor_slope1    = 0
+.param sky130_fd_pr__pfet_01v8_hvt__wlod_diff         = 0
+.param sky130_fd_pr__pfet_01v8_hvt__kvth0_diff        = 0
+.param sky130_fd_pr__pfet_01v8_hvt__lkvth0_diff       = 0
+.param sky130_fd_pr__pfet_01v8_hvt__wkvth0_diff       = 0
+.param sky130_fd_pr__pfet_01v8_hvt__ku0_diff          = 0
+.param sky130_fd_pr__pfet_01v8_hvt__lku0_diff         = 0
+.param sky130_fd_pr__pfet_01v8_hvt__wku0_diff         = 0
+.param sky130_fd_pr__pfet_01v8_hvt__kvsat_diff        = 0
+
+* ---- Extracted inverter subcircuit (6P+6N from Magic) ----
+* Port order from Magic: VDPWR VGND ua[0]=gate ua[1]=drain
+* Re-mapped here: gate=vin, drain=vout, VDPWR=vdd, VGND=0
+.subckt inv6_extracted gate drain vdd vss
+X0 drain gate vdd vdd sky130_fd_pr__pfet_01v8_hvt ad=0.135e-12 pd=1.27e-6 as=0.135e-12 ps=1.27e-6 w=1e-6 l=1.5e-7
+X1 drain gate vss vss sky130_fd_pr__nfet_01v8 ad=0.08775e-12 pd=0.92e-6 as=0.247e-12 ps=2.06e-6 w=0.65e-6 l=1.5e-7
+X2 vdd gate drain vdd sky130_fd_pr__pfet_01v8_hvt ad=0.135e-12 pd=1.27e-6 as=0.135e-12 ps=1.27e-6 w=1e-6 l=1.5e-7
+X3 drain gate vss vss sky130_fd_pr__nfet_01v8 ad=0.08775e-12 pd=0.92e-6 as=0.08775e-12 ps=0.92e-6 w=0.65e-6 l=1.5e-7
+X4 vdd gate drain vdd sky130_fd_pr__pfet_01v8_hvt ad=0.135e-12 pd=1.27e-6 as=0.135e-12 ps=1.27e-6 w=1e-6 l=1.5e-7
+X5 vdd gate drain vdd sky130_fd_pr__pfet_01v8_hvt ad=0.27e-12 pd=2.54e-6 as=0.135e-12 ps=1.27e-6 w=1e-6 l=1.5e-7
+X6 drain gate vss vss sky130_fd_pr__nfet_01v8 ad=0.08775e-12 pd=0.92e-6 as=0.08775e-12 ps=0.92e-6 w=0.65e-6 l=1.5e-7
+X7 drain gate vdd vdd sky130_fd_pr__pfet_01v8_hvt ad=0.135e-12 pd=1.27e-6 as=0.43e-12 ps=2.86e-6 w=1e-6 l=1.5e-7
+X8 vss gate drain vss sky130_fd_pr__nfet_01v8 ad=0.08775e-12 pd=0.92e-6 as=0.08775e-12 ps=0.92e-6 w=0.65e-6 l=1.5e-7
+X9 drain gate vdd vdd sky130_fd_pr__pfet_01v8_hvt ad=0.135e-12 pd=1.27e-6 as=0.135e-12 ps=1.27e-6 w=1e-6 l=1.5e-7
+X10 vss gate drain vss sky130_fd_pr__nfet_01v8 ad=0.08775e-12 pd=0.92e-6 as=0.08775e-12 ps=0.92e-6 w=0.65e-6 l=1.5e-7
+X11 vss gate drain vss sky130_fd_pr__nfet_01v8 ad=0.1755e-12 pd=1.84e-6 as=0.08775e-12 ps=0.92e-6 w=0.65e-6 l=1.5e-7
+.ends inv6_extracted
+
+* ---- Top-level circuit ----
+Vdd vdd 0 1.8
+Xinv vin vout vdd 0 inv6_extracted
+Rfb vout vin 5000
+Iin 0 vin DC 0 AC 1
+Cpd vin 0 100f
+
+* ---- Analysis ----
+.control
+  set noaskquit
+  op
+  echo "=== DC Operating Point ==="
+  print v(vin) v(vout)
+
+  ac dec 20 1MEG 100G
+  echo "=== AC Transimpedance at 100MHz ==="
+  print vdb(vout)
+
+  * Save transimpedance magnitude and phase
+  let zt_mag = mag(v(vout))
+  let zt_db  = 20*log10(zt_mag)
+  let zt_ph  = 180/pi*phase(v(vout))
+
+  * Write raw data
+  write sim/results/postlayout_ac.raw
+
+  * Plot and save PNG
+  set hcopydevtype=png
+  set hcopywidth=900
+  set hcopyheight=500
+  hardcopy sim/results/postlayout_zt_mag.png zt_db vs frequency xlimit 1e6 1e11 ylabel "|Zt| dBΩ" title "TIA Post-Layout: Transimpedance Magnitude"
+  hardcopy sim/results/postlayout_zt_phase.png zt_ph vs frequency xlimit 1e6 1e11 ylabel "Phase (deg)" title "TIA Post-Layout: Transimpedance Phase"
+
+  quit
+.endc
+
+.end

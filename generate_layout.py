@@ -353,22 +353,63 @@ def main():
     a_x, a_y = A_ABS
     r0x, r0y = r0_pos
 
-    # li1 single vertical wire from A pin pad up to r0 terminal pad.
-    # r0x == a_x by construction (RES_X = A_ABS[0]-W/2+W/2 = A_ABS[0]).
-    # li.6: area per segment >= 0.0561um^2; 0.17um * 3.0um = 0.51um^2 >> 0.0561 ✓
-    R(top, a_x - li1_hw, a_y, a_x + li1_hw, r0y + li1_hw, 'li1')
+    # Connect A (gate/Vin) to r0 (resistor bottom terminal) via met2.
+    # A bare li1 wire at x=a_x±li1_hw (78.175..78.345) from a_y to r0y would pass
+    # through the SC inv_6 VPWR li1 block (x=78.030..81.250, y=32.720..33.200),
+    # directly shorting the gate net to VDD on li1.  Route via met2 instead.
+    #
+    # Path: SC gate li1 → mcon(A_ABS) → met1 → via → met2 →
+    #       [vertical met2 crosses VDD region safely] →
+    #       met2 pad → via → met1 → mcon(r0) → r0 li1 pad
+    # (r0 li1 pad is already drawn by draw_poly_resistor)
+    #
+    # Note: via_stack(VIN_COL, a_y, 'met1','met4') in section 5 also places
+    # met1+via+met2+... at A_ABS; those shapes overlap and share the VIN net.
+    #
+    # A_ABS side: SC gate li1 → mcon → met1 → via → met2 pad
+    R(top, a_x - _VIA_HW['mcon'],  a_y - _VIA_HW['mcon'],
+           a_x + _VIA_HW['mcon'],  a_y + _VIA_HW['mcon'],  'mcon')
+    R(top, a_x - _MET_HW['met1'],  a_y - _MET_HW['met1'],
+           a_x + _MET_HW['met1'],  a_y + _MET_HW['met1'],  'met1')
+    R(top, a_x - _VIA_HW['via'],   a_y - _VIA_HW['via'],
+           a_x + _VIA_HW['via'],   a_y + _VIA_HW['via'],   'via')
+    R(top, a_x - _MET_HW['met2'],  a_y - _MET_HW['met2'],
+           a_x + _MET_HW['met2'],  a_y + _MET_HW['met2'],  'met2')
+    # met2 vertical wire from A_ABS to r0y (crosses VDD li1 & met1 on a safe layer)
+    R(top, a_x - _MET_HW['met2'],  a_y,
+           a_x + _MET_HW['met2'],  r0y,                    'met2')
+    # r0 side: met2 pad → via → met1 → mcon → r0 li1 pad (already exists)
+    R(top, a_x - _MET_HW['met2'],  r0y - _MET_HW['met2'],
+           a_x + _MET_HW['met2'],  r0y + _MET_HW['met2'],  'met2')
+    R(top, a_x - _VIA_HW['via'],   r0y - _VIA_HW['via'],
+           a_x + _VIA_HW['via'],   r0y + _VIA_HW['via'],   'via')
+    R(top, a_x - _MET_HW['met1'],  r0y - _MET_HW['met1'],
+           a_x + _MET_HW['met1'],  r0y + _MET_HW['met1'],  'met1')
+    R(top, a_x - _VIA_HW['mcon'],  r0y - _VIA_HW['mcon'],
+           a_x + _VIA_HW['mcon'],  r0y + _VIA_HW['mcon'],  'mcon')
 
     # --- Connect r1 (top resistor terminal) to Y (Vout node) ---
     y_x, y_y = Y_ABS
     r1x, r1y = r1_pos
     res_top_y = RES_Y + HEAD + L_BODY + HEAD
-
-    # met1 route from Y up to a met1 channel
-    # NOTE: SC inv_6 already provides li1+mcon+met1 at the Y output pin.
-    # Adding a manual via_stack here causes li.3 (li1 spacing) violations.
-    # The met1 wire below connects directly to the SC's existing met1 at Y.
     m1_ch_y = res_top_y + 0.8  # met1 routing channel above resistor
-    R(top, y_x - m1_hw, y_y, y_x + m1_hw, m1_ch_y, 'met1')
+
+    # Connect Y output pin to signal channel using met2 (NOT met1).
+    # Reason: a met1 wire from y_y=31.43 to m1_ch_y=36.9 would cross the VDD
+    # met1 rail at y=32.72..33.20 (x=1.76..82.38) causing a Vout-VPWR short.
+    # Instead: mcon at Y (SC li1[y]→met1), then via met1→met2, route on met2.
+    # SC has li1 at Y: shape (78.715-81.165, 30.495-32.705) fully covers y_x,y_y ✓
+    # No li1 pad added here (would violate li.3: 0.16um < 0.17um min spacing).
+    R(top, y_x - _VIA_HW['mcon'],  y_y - _VIA_HW['mcon'],
+           y_x + _VIA_HW['mcon'],  y_y + _VIA_HW['mcon'],  'mcon')
+    R(top, y_x - _MET_HW['met1'],  y_y - _MET_HW['met1'],
+           y_x + _MET_HW['met1'],  y_y + _MET_HW['met1'],  'met1')
+    R(top, y_x - _VIA_HW['via'],   y_y - _VIA_HW['via'],
+           y_x + _VIA_HW['via'],   y_y + _VIA_HW['via'],   'via')
+    R(top, y_x - _MET_HW['met2'],  y_y - _MET_HW['met2'],
+           y_x + _MET_HW['met2'],  y_y + _MET_HW['met2'],  'met2')
+    # met2 vertical wire from Y_ABS up to signal channel — crosses VDD rail safely
+    R(top, y_x - _MET_HW['met2'], y_y, y_x + _MET_HW['met2'], m1_ch_y, 'met2')
 
     # met1 via stack at r1 in li1, lift to met1
     via_stack(top, r1x, r1y, 'li1', 'met1')
@@ -414,8 +455,8 @@ def main():
     # route met4 wires down to the ua pin locations
 
     # --- Vin (A / r0) routing column ---
-    VIN_COL  = a_x        # x-column for Vin routing
-    VOUT_COL = y_x        # x-column for Vout routing
+    VIN_COL  = a_x        # x-column for Vin routing  = 78.26
+    VOUT_COL = y_x        # x-column for Vout routing = 81.00
 
     # Vin: met1-met2-met3-met4 via tower at (VIN_COL, a_y)
     via_stack(top, VIN_COL,  a_y,     'met1', 'met4')
@@ -423,27 +464,49 @@ def main():
     # Vout: the met1 channel height is m1_ch_y; put met4 tower there
     via_stack(top, VOUT_COL, m1_ch_y, 'met1', 'met4')
 
-    # met4 vertical runs down to the ua[] pin stubs (y=1..4)
-    UA0_X = ANALOG_X[0]   # 152.260
-    UA1_X = ANALOG_X[1]   # 132.940
-    STUB_Y_BOT = 0.0
-    STUB_Y_TOP = 15.0
+    # --------------------------------------------------------
+    # met4 routing from circuit nodes down to ua[] pin pads.
+    #
+    # Two-tier strategy to prevent signal shorts:
+    #
+    #   VOUT tier (lower, VOUT_ROUTE_Y=20):
+    #     ua[1] stub at x=132.94 rises from y=0 to y=20.45.
+    #     VIN  bus extends to x=152.26; gap from 133.39 to 151.81 -> no cross.
+    #
+    #   VIN  tier (upper, VIN_ROUTE_Y=40):
+    #     VIN bus sits above the top of the VOUT bridge (max y=37.35) -> no cross.
+    #     ua[0] stub at x=152.26 rises from y=0 to y=40.45;
+    #     VOUT bus max x=133.39 < 151.81 -> no x overlap -> no cross.
+    #
+    # Each tier has three met4 shapes:
+    #   (a) horizontal bus  – connects routing column to pin x-column
+    #   (b) vertical bridge – connects via tower (at circuit y) to the bus
+    #   (c) vertical stub   – connects ua[] pin pad (y=0) up to the bus
+    # --------------------------------------------------------
+    UA0_X = ANALOG_X[0]   # 152.260  (ua[0] = Iin / Vin)
+    UA1_X = ANALOG_X[1]   # 132.940  (ua[1] = Vout)
 
-    # Vin -> ua[0]: met4 route
-    # Horizontal met4 at mid-height, then vertical down to pin
-    VIN_ROUTE_Y = 20.0
-    R(top, min(VIN_COL,  UA0_X)-0.45, VIN_ROUTE_Y-0.45,
-           max(VIN_COL,  UA0_X)+0.45, VIN_ROUTE_Y+0.45, 'met4')
-    via_stack(top, VIN_COL, VIN_ROUTE_Y,  'met3', 'met4')
-    # Extend met4 tower down  from VIN_ROUTE_Y to STUB_Y_TOP
-    R(top, UA0_X-0.45, STUB_Y_BOT, UA0_X+0.45, VIN_ROUTE_Y+0.45, 'met4')
-
-    # Vout -> ua[1]: met4 route
-    VOUT_ROUTE_Y = 22.0
+    # ---- Vout -> ua[1] (lower tier) ----
+    VOUT_ROUTE_Y = 20.0
+    # (a) horizontal bus: VOUT_COL -> UA1_X at VOUT_ROUTE_Y
     R(top, min(VOUT_COL, UA1_X)-0.45, VOUT_ROUTE_Y-0.45,
            max(VOUT_COL, UA1_X)+0.45, VOUT_ROUTE_Y+0.45, 'met4')
-    via_stack(top, VOUT_COL, VOUT_ROUTE_Y, 'met3', 'met4')
-    R(top, UA1_X-0.45, STUB_Y_BOT, UA1_X+0.45, VOUT_ROUTE_Y+0.45, 'met4')
+    # (b) vertical bridge: via tower at m1_ch_y down to horizontal bus
+    R(top, VOUT_COL-0.45, VOUT_ROUTE_Y-0.45,
+           VOUT_COL+0.45, m1_ch_y+0.45,    'met4')
+    # (c) vertical stub: pin (y=0) up to horizontal bus at UA1_X
+    R(top, UA1_X-0.45, 0.0, UA1_X+0.45, VOUT_ROUTE_Y+0.45, 'met4')
+
+    # ---- Vin -> ua[0] (upper tier, above VOUT bridge top ~37.35) ----
+    VIN_ROUTE_Y = 40.0
+    # (a) horizontal bus: VIN_COL -> UA0_X at VIN_ROUTE_Y
+    R(top, min(VIN_COL,  UA0_X)-0.45, VIN_ROUTE_Y-0.45,
+           max(VIN_COL,  UA0_X)+0.45, VIN_ROUTE_Y+0.45, 'met4')
+    # (b) vertical bridge: via tower at a_y up to horizontal bus
+    R(top, VIN_COL-0.45, a_y-0.45,
+           VIN_COL+0.45, VIN_ROUTE_Y+0.45, 'met4')
+    # (c) vertical stub: pin (y=0) up to horizontal bus at UA0_X
+    R(top, UA0_X-0.45, 0.0, UA0_X+0.45, VIN_ROUTE_Y+0.45, 'met4')
 
     # ================================================================
     # 6. TT met4 pin frame
