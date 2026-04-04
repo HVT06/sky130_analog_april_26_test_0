@@ -30,20 +30,22 @@ LY = {
     'nwell':    (64, 20),  'nwell_pin':(64,16),
     'diff':     (65, 20),
     'poly':     (66, 20),
-    'licon':    (66, 44),  # local interconnect contact cut
+    'licon':    (66, 44),  # local interconnect contact cut (exact size 0.17um)
     'li1':      (67, 20),  'li1_pin': (67,16), 'li1_lbl': (67,5),
-    'mcon':     (67, 44),  # li1-to-met1 via
+    'mcon':     (67, 44),  # li1-to-met1 via (exact size 0.17um)
     'met1':     (68, 20),  'met1_pin':(68,16),
-    'via':      (68, 44),  # met1-to-met2 via
+    'via':      (68, 44),  # met1-to-met2 via (exact size 0.15um)
     'met2':     (69, 20),  'met2_pin':(69,16),
-    'via2':     (69, 44),  # met2-to-met3 via
+    'via2':     (69, 44),  # met2-to-met3 via (exact size 0.20um)
     'met3':     (70, 20),  'met3_pin':(70,16),
-    'via3':     (70, 44),  # met3-to-met4 via
+    'via3':     (70, 44),  # met3-to-met4 via (exact size 0.20um)
     'met4':     (71, 20),  'met4_pin':(71,16), 'met4_lbl':(71,5),
-    'rpo':      (75, 20),  # resist protect oxide (high-ohm poly)
+    # hvi (75,20) = High Voltage Indicator: min width 0.6um, DO NOT use for poly resistors
+    # rpm (86,20) = Resistor Poly Mask: min width 1.27um, too wide for 0.35um resistor body
+    # For sky130_fd_pr__res_high_po_0p35: bare poly (no marker) is correct in periphery
     'nsdm':     (93, 44),  # n+ source/drain mask
     'psdm':     (94, 20),  # p+ source/drain mask
-    'npc':      (95, 20),  # n+ poly contact
+    'npc':      (95, 20),  # n+ poly contact (encloses poly licons in areaid_ce core)
     'prbndry':  (235,  4), # PR boundary
 }
 
@@ -62,7 +64,6 @@ LAYER_COLORS = {
     'met3':   '#ffd700',
     'via3':   '#a08000',
     'met4':   '#ff8c00',
-    'rpo':    '#40e0d0',
     'nsdm':   '#00cc00',
     'psdm':   '#cc8800',
     'prbndry':'#888888',
@@ -143,29 +144,48 @@ def L(cell, text, x, y, layer_key):
     ly = LY[layer_key]
     cell.add(gdstk.Label(text, (x, y), layer=ly[0], texttype=ly[1]))
 
-def via_stack(cell, cx, cy, from_key='li1', to_key='met4', hw=0.09, mhw=0.175):
+# ----------------------------------------------------------------
+# Exact via/cut sizes required by sky130A DRC (sky130A_mr.drc):
+#   mcon (67/44): 0.17 x 0.17 um  (ct.1_a min=0.17, ct.1_b max=0.17)
+#   via  (68/44): 0.15 x 0.15 um  (via.1a_a min=0.15, via.1a_b max=0.15)
+#   via2 (69/44): 0.20 x 0.20 um  (via2.1a_a min=0.20, via2.1a_b max=0.20)
+#   via3 (70/44): 0.20 x 0.20 um  (via3.1_a min=0.20, via3.1_b max=0.20)
+# Metal pad half-widths satisfy enclosure rules AND minimum area rules:
+#   li1  (0.17 min): li.5 enc of licon/mcon >=0.08um adj  -> hw=0.175
+#   met1 (0.14 min): via.5a enc of via >=0.085um adj      -> hw=0.175  (enc=0.10)
+#   met2 (0.14 min): via2.5 enc of via2 >=0.085um adj     -> hw=0.210  (enc=0.11)
+#   met3 (0.30 min): area>=0.24um^2; via3.5 encl>=0.09um  -> hw=0.300  (0.6x0.6=0.36um^2)
+#   met4 (0.30 min): area>=0.24um^2; m4.3 encl>=0.065um   -> hw=0.300  (0.6x0.6=0.36um^2)
+# ----------------------------------------------------------------
+_VIA_HW  = {'mcon': 0.085, 'via': 0.075, 'via2': 0.100, 'via3': 0.100}
+_MET_HW  = {'li1': 0.175, 'met1': 0.175, 'met2': 0.210, 'met3': 0.300, 'met4': 0.300}
+
+def via_stack(cell, cx, cy, from_key='li1', to_key='met4'):
     """
-    Draw a full via stack at (cx,cy) from from_key to to_key.
-    hw  = via/cut half-width
-    mhw = metal pad half-width = 0.175 (gives 0.35um pad)
+    Draw a DRC-clean via/cut stack at (cx,cy) from from_key to to_key.
+    Uses per-type exact via sizes and per-layer metal pad half-widths
+    from _VIA_HW/_MET_HW to satisfy all sky130A BEOL DRC rules.
     """
-    layers_order = ['li1','met1','met2','met3','met4']
+    layers_order = ['li1', 'met1', 'met2', 'met3', 'met4']
     via_info = [
-        ('mcon','met1'),   # li1 -> met1
-        ('via', 'met2'),   # met1 -> met2
-        ('via2','met3'),   # met2 -> met3
-        ('via3','met4'),   # met3 -> met4
+        ('mcon', 'met1'),   # li1  -> met1
+        ('via',  'met2'),   # met1 -> met2
+        ('via2', 'met3'),   # met2 -> met3
+        ('via3', 'met4'),   # met3 -> met4
     ]
     si = layers_order.index(from_key)
     ei = layers_order.index(to_key)
 
-    # Draw bottom metal pad
-    R(cell, cx-mhw, cy-mhw, cx+mhw, cy+mhw, from_key)
+    # Bottom metal pad
+    hw = _MET_HW[from_key]
+    R(cell, cx-hw, cy-hw, cx+hw, cy+hw, from_key)
     for idx, (via_key, upper_metal) in enumerate(via_info):
         if idx < si or idx >= ei:
             continue
-        R(cell, cx-hw, cy-hw, cx+hw, cy+hw, via_key)
-        R(cell, cx-mhw, cy-mhw, cx+mhw, cy+mhw, upper_metal)
+        vh = _VIA_HW[via_key]
+        R(cell, cx-vh, cy-vh, cx+vh, cy+vh, via_key)
+        hw = _MET_HW[upper_metal]
+        R(cell, cx-hw, cy-hw, cx+hw, cy+hw, upper_metal)
 
 def met1_wire(cell, x1, y1, x2, y2, w=0.28):
     """Horizontal or L-shaped met1 wire between two points."""
@@ -201,37 +221,38 @@ def draw_poly_resistor(cell, x0, y0, W=0.35, L_body=1.20, head=0.35):
     Orientation: vertical (poly runs in Y direction).
 
     Structure (bottom to top):
-      [li1 pad] -- [licon] -- [poly head (y0..y0+head)] --
-      [poly body (y0+head .. y0+head+L_body) covered by RPO] --
-      [poly head (y0+head+L_body .. y0+head+L_body+head)] -- [licon] -- [li1 pad]
+      [li1 pad] -- [licon (0.17x0.17)] -- [poly head (y0..y0+head)] --
+      [poly body (y0+head .. y0+head+L_body)] --
+      [poly head (y0+head+L_body .. y0+2*head+L_body)] -- [licon] -- [li1 pad]
 
-    RPO: x0-0.10 .. x0+W+0.10, y0+head-0.10 .. y0+head+L_body+0.10
-         (RPO must not cover licon regions, stays 0.10um away)
+    NOTE: No special resistor marker layer is drawn here.
+    sky130 (75,20) = hvi (High Voltage Indicator, min width 0.6um) -- NOT RPO.
+    sky130 (86,20) = rpm (Resistor Poly Mask, min width 1.27um) -- too wide.
+    For periphery layout, bare poly without marker layers is correct; the high
+    sheet resistance (Rsh~1112 Ohm/sq) comes from the un-silicided poly nature
+    of sky130_fd_pr__res_high_po_0p35.
+    licon size: exactly 0.17x0.17um (licon.1 rule: min/max = 0.17um).
 
     Returns: (r0_x, r0_y), (r1_x, r1_y) -- li1 pad centres at each terminal.
     """
-    # Poly strip (entire length)
+    # Poly strip (entire length = 2*head + L_body)
     total_L = head + L_body + head
-    R(cell, x0,       y0,          x0+W,       y0+total_L,    'poly')
+    R(cell, x0, y0, x0+W, y0+total_L, 'poly')
 
-    # RPO (covers only the body, stepped back from licon regions)
-    rpo_gap = 0.1
-    R(cell, x0-rpo_gap, y0+head-rpo_gap,
-            x0+W+rpo_gap, y0+head+L_body+rpo_gap, 'rpo')
-
-    # licon contacts (0.17x0.17) in each head
-    lhw = 0.085  # licon half-width
-    # Bottom contact: centered in head
-    r0x = x0 + W/2.0
-    r0y = y0 + head/2.0
+    # licon contacts: exactly 0.17x0.17um centred in each poly head
+    lhw = 0.085  # half of 0.17um
+    r0x = x0 + W / 2.0
+    r0y = y0 + head / 2.0
     R(cell, r0x-lhw, r0y-lhw, r0x+lhw, r0y+lhw, 'licon')
-    # Top contact
-    r1x = x0 + W/2.0
-    r1y = y0 + head + L_body + head/2.0
+
+    r1x = x0 + W / 2.0
+    r1y = y0 + head + L_body + head / 2.0
     R(cell, r1x-lhw, r1y-lhw, r1x+lhw, r1y+lhw, 'licon')
 
-    # li1 landing pads at each contact
-    lpad = 0.175  # li1 half-width
+    # li1 landing pads (0.35x0.35um) enclosing each licon
+    # li.5: li1 must enclose licon by >=0.08um on 2 adjacent edges
+    # lpad=0.175 => enclosure = 0.175-0.085 = 0.090um >= 0.08 ✓
+    lpad = 0.175
     R(cell, r0x-lpad, r0y-lpad, r0x+lpad, r0y+lpad, 'li1')
     R(cell, r1x-lpad, r1y-lpad, r1x+lpad, r1y+lpad, 'li1')
 
@@ -328,14 +349,10 @@ def main():
     a_x, a_y = A_ABS
     r0x, r0y = r0_pos
 
-    # li1 short stub from A li1 pad upward
-    R(top, a_x - li1_hw, a_y,       a_x + li1_hw, RES_Y - 0.05,   'li1')
-    # li1 horizontal from A column to r0 column
-    r0_meet_y = RES_Y - 0.05
-    R(top, min(a_x, r0x)-li1_hw, r0_meet_y-li1_hw,
-           max(a_x, r0x)+li1_hw, r0_meet_y+li1_hw, 'li1')
-    # li1 up from r0_meet_y to r0 pad
-    R(top, r0x - li1_hw, r0_meet_y, r0x + li1_hw, r0y + li1_hw, 'li1')
+    # li1 single vertical wire from A pin pad up to r0 terminal pad.
+    # r0x == a_x by construction (RES_X = A_ABS[0]-W/2+W/2 = A_ABS[0]).
+    # li.6: area per segment >= 0.0561um^2; 0.17um * 3.0um = 0.51um^2 >> 0.0561 ✓
+    R(top, a_x - li1_hw, a_y, a_x + li1_hw, r0y + li1_hw, 'li1')
 
     # --- Connect r1 (top resistor terminal) to Y (Vout node) ---
     y_x, y_y = Y_ABS
@@ -517,8 +534,10 @@ def main():
 # ============================================================
 
 # Layer draw order (bottom to top in z-order)
+# Note: 'rpo' removed -- sky130 layer (75,20) is hvi (High Voltage Indicator), not RPO;
+#       no special marker layer is drawn for the poly resistor body.
 LAYER_ORDER = [
-    'prbndry','nwell','diff','poly','rpo','nsdm','psdm',
+    'prbndry','nwell','diff','poly','nsdm','psdm',
     'licon','li1','mcon','met1','via','met2','via2','met3','via3','met4',
 ]
 
@@ -528,7 +547,6 @@ SVG_STYLE = {
     'nwell':   ('#c0e0ff', '#3080c0', 0.3, 0.5),
     'diff':    ('#90ee90', '#006600', 0.5, 0.7),
     'poly':    ('#ff6060', '#cc0000', 0.6, 0.8),
-    'rpo':     ('#40e0d0', '#007070', 0.35, 0.6),
     'nsdm':    ('#00cc00', '#004400', 0.3, 0.6),
     'psdm':    ('#cc8800', '#664400', 0.3, 0.6),
     'licon':   ('#b060b0', '#600060', 0.8, 0.9),

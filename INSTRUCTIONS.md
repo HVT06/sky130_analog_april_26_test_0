@@ -137,27 +137,29 @@ This approach gives you full control over coordinates and layers.
 pip install gdstk
 ```
 
-Key Sky130A GDS layers:
+Key Sky130A GDS layers (see also `docs/drc_rules.md` for full DRC constraints):
 
-| Layer | GDS (layer, datatype) | Purpose |
-|-------|----------------------|---------|
-| diff | (65, 20) | N/P diffusion |
-| poly | (66, 20) | Polysilicon gate |
-| licon1 | (66, 44) | Local interconnect contact |
-| li1 | (67, 20) | Local interconnect |
-| mcon | (67, 44) | LI-to-Met1 via |
-| met1 | (68, 20) | Metal 1 |
-| via | (68, 44) | Met1-to-Met2 via |
-| met2 | (69, 20) | Metal 2 |
-| via2 | (69, 44) | Met2-to-Met3 via |
-| met3 | (70, 20) | Metal 3 |
-| via3 | (70, 44) | Met3-to-Met4 via |
-| met4 | (71, 20) | Metal 4 (drawing) |
-| met4 pin | (71, 16) | Metal 4 (pin marker) |
-| met4 label | (71, 5) | Metal 4 (text label) |
-| nsdm | (93, 44) | N+ select implant |
-| npc | (95, 20) | Nitride poly cut |
-| prbndry | (235, 4) | PR boundary |
+| Layer | GDS (layer, datatype) | Purpose | Key constraint |
+|-------|----------------------|---------|----------------|
+| diff | (65, 20) | N/P diffusion | min width 0.15 µm |
+| poly | (66, 20) | Polysilicon gate | min width 0.15 µm |
+| licon1 | (66, 44) | Local interconnect contact | **exactly 0.17×0.17 µm** |
+| li1 | (67, 20) | Local interconnect | min width 0.17 µm |
+| mcon | (67, 44) | LI-to-Met1 via | **exactly 0.17×0.17 µm** |
+| met1 | (68, 20) | Metal 1 | min width 0.14 µm |
+| via / via1 | (68, 44) | Met1-to-Met2 via | **exactly 0.15×0.15 µm** |
+| met2 | (69, 20) | Metal 2 | min width 0.14 µm |
+| via2 | (69, 44) | Met2-to-Met3 via | **exactly 0.20×0.20 µm** |
+| met3 | (70, 20) | Metal 3 | min width **0.30 µm**, min area **0.24 µm²** |
+| via3 | (70, 44) | Met3-to-Met4 via | **exactly 0.20×0.20 µm** |
+| met4 | (71, 20) | Metal 4 (drawing) | min width **0.30 µm**, min area **0.24 µm²** |
+| met4 pin | (71, 16) | Metal 4 (pin marker) | — |
+| met4 label | (71, 5) | Metal 4 (text label) | — |
+| nsdm | (93, 44) | N+ select implant | min width 0.38 µm |
+| npc | (95, 20) | Nitride poly cut | min width 0.27 µm |
+| prbndry | (235, 4) | PR boundary | — |
+| **hvi** | **(75, 20)** | **High Voltage Indicator** — for 5 V devices | **min 0.60 µm** — NOT RPO/resistor marker |
+| rpm | (86, 20) | Precision resistor poly mask | min 1.27 µm — rarely hand-drawn |
 
 #### GDS Requirements
 
@@ -169,9 +171,7 @@ Key Sky130A GDS layers:
 6. **Power stripes** on met4: minimum width 1.2µm, from y=5µm to y=220.76µm
 7. **No met5** — metal 5 is reserved for TT routing
 8. **Analog pin stubs** — each analog pin declared in `analog_pins` **must** have adjacent metal connected to it (not just the pin rectangle). Add a met4 stub (e.g., 3µm extension) from each used analog pin into the cell area. Without this, the precheck fails with: `Analog pin ua[X] is not connected to any adjacent metal`
-9. **Magic DRC compliance** — the precheck runs Magic DRC. If you draw device geometry (diffusion, poly, contacts, vias) by hand with gdstk, you will almost certainly violate sky130A design rules (contact enclosure, spacing, implant overlap, etc.). Either:
-   - Use **only met4** shapes (pins + stubs + power stripes + boundary) — this is DRC-safe and sufficient for analog pin routing
-   - Or use **Magic VLSI** or **OpenLane** to generate DRC-clean device layout
+9. **Magic + KLayout DRC compliance** — if you draw device geometry (diff, poly, licon, vias) by hand, use correct PDK-mandated sizes. Wrong via sizes or misidentified layers (e.g., hvi vs RPO) will fail FEOL/BEOL. See `docs/drc_rules.md` for a full rule table.
 10. Save as `gds/<top_module>.gds`
 
 #### Pin Positions (1×2 tile)
@@ -402,7 +402,9 @@ git push origin main
 | Error | Cause | Fix |
 |-------|-------|-----|
 | `fatal: No url found for submodule path '...' in .gitmodules` | Repo was cloned inside another git repo, creating a phantom submodule | `git rm --cached <path>` then commit and push |
-| `Magic DRC failed` | Hand-drawn device geometry (diff, poly, contacts) violates sky130A rules | Remove device layers; use only met4 shapes, or use Magic/OpenLane for DRC-clean layout |
+| `Magic DRC failed` | Via/cut sizes wrong, or (75,20)/hvi marker drawn with wrong width | See `docs/drc_rules.md`. Fix: use exact via sizes (mcon=0.17, via=0.15, via2/3=0.20 µm) and correct metal pad widths (met3/met4 pad ≥ 0.60 µm for area rule). Do NOT draw on layer (75,20) = hvi for poly resistors. |
+| `Klayout feol failed with 1 DRC violations` | Layer (75,20) drawn with width < 0.60 µm — (75,20) is `hvi` (High Voltage Indicator), not RPO | Never use (75,20) for poly resistors. Periphery poly-resistors need bare poly only — no marker layer. See `docs/drc_rules.md§3.6`. |
+| `Klayout beol failed with N DRC violations` | Via/cut sizes not exactly matching sky130A rules, or metal pads too small for area/enclosure rules | Use per-type via sizes: `mcon=0.17, via=0.15, via2=0.20, via3=0.20 µm`. Metal pads: met3/met4 ≥ 0.60×0.60 µm (area 0.36 µm² ≥ 0.24 µm²). Full table in `docs/drc_rules.md§6`. |
 | `Analog pin ua[X] is not connected to any adjacent metal` | Analog pin declared in `info.yaml` but no metal extends from it in GDS | Add met4 stubs (≥3µm) extending from each used analog pin into the cell |
 | `Failed to create deployment (status: 404)` | GitHub Pages not enabled | Go to repo Settings → Pages → Source: **GitHub Actions** |
 | Cell name mismatch | `top_module` in info.yaml ≠ module name in project.v ≠ cell name in GDS ≠ MACRO in LEF | Ensure all four match exactly |

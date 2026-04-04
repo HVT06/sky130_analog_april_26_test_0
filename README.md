@@ -59,8 +59,9 @@ Cpd = 100 fF  (photodiode model at Vin)
 |   `-- results/              Output TSV + ngspice raw files
 `-- docs/
     |-- info.md               Project datasheet (pinout, testing)
-    |-- tia_design.md         Design document (equations, analysis)
+    |-- tia_design.md         Design document (equations, layer stack, DRC notes)
     `-- tia_report.md         Simulation results report
+    `-- drc_rules.md          Sky130A DRC rules reference + CI violation analysis
 ```
 
 ## Simulations
@@ -117,8 +118,9 @@ All digital I/O pins (`uo_out[7:0]`, `uio_*`) are tied LOW.
 ## Documentation
 
 - [docs/info.md](docs/info.md) -- Datasheet: pinout, test procedure
-- [docs/tia_design.md](docs/tia_design.md) -- Design equations and analysis
+- [docs/tia_design.md](docs/tia_design.md) -- Design equations and analysis (includes layer stack table)
 - [docs/tia_report.md](docs/tia_report.md) -- Simulation results report
+- [docs/drc_rules.md](docs/drc_rules.md) -- Sky130A DRC rules reference (FEOL/BEOL/antenna), root cause analysis of all CI violations and fixes
 
 ## Build & Verify
 
