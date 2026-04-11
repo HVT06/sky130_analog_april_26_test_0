@@ -529,7 +529,7 @@ def build_moscap(lib, name, cap_pf, cox_ff_um2=8.3):
     # P+ substrate tap
     build_ptap(cell, snap(total_x + 0.400), snap(finger_w / 2 - 0.250))
 
-    # Internal substrate-tap column for wide capacitors
+    # Internal substrate-tap column for wide MOSCAP arrays (LU.2)
     if tap_gap > 0:
         tap_col_x = snap(split * fp + 0.350)
         for ty in range(0, int(finger_w) + 1, 8):
@@ -632,12 +632,12 @@ def build_vco(lib):
         cell.add(gdstk.Reference(nfet_inv, (sx + 0.500, snap(y_nmos + sink_sz[1] + 0.500))))
         cell.add(gdstk.Reference(nfet_sink, (sx, y_nmos)))
 
-                tap_sx = snap(sx + max(src_sz[0], sink_sz[0]) + 0.200)
-                build_ptap(cell, tap_sx, snap(y_nmos + 0.5))
-                build_ntap(cell, tap_sx, snap(y_pmos + 0.5), draw_nwell=False)
-                R(cell, sx - NWELL_ENC, y_pmos - NWELL_ENC,
-                    snap(tap_sx + 0.500 + NWELL_ENC),
-                    snap(pfet_src_y + src_sz[1] + NWELL_ENC), 'nwell')
+        tap_sx = snap(sx + max(src_sz[0], sink_sz[0]) + 0.200)
+        build_ptap(cell, tap_sx, snap(y_nmos + 0.5))
+        build_ntap(cell, tap_sx, snap(y_pmos + 0.5), draw_nwell=False)
+        R(cell, sx - NWELL_ENC, y_pmos - NWELL_ENC,
+          snap(tap_sx + 0.500 + NWELL_ENC),
+          snap(pfet_src_y + src_sz[1] + NWELL_ENC), 'nwell')
 
     x = snap(x + 5 * stage_pitch + 2.000)
     cell.add(gdstk.Reference(buf_inv1, (x, y_nmos)))
