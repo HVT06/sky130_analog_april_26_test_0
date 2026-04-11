@@ -1,0 +1,62 @@
+* Minimal charge pump current test
+.title CP Debug
+
+.param sky130_fd_pr__nfet_01v8__toxe_slope=0
+.param sky130_fd_pr__nfet_01v8__vth0_slope=0
+.param sky130_fd_pr__nfet_01v8__voff_slope=0
+.param sky130_fd_pr__nfet_01v8__toxe_slope1=0
+.param sky130_fd_pr__nfet_01v8__vth0_slope1=0
+.param sky130_fd_pr__nfet_01v8__voff_slope1=0
+.param sky130_fd_pr__pfet_01v8__toxe_slope=0
+.param sky130_fd_pr__pfet_01v8__vth0_slope=0
+.param sky130_fd_pr__pfet_01v8__voff_slope=0
+.param sky130_fd_pr__pfet_01v8__nfactor_slope=0
+.param sky130_fd_pr__pfet_01v8__toxe_slope1=0
+.param sky130_fd_pr__pfet_01v8__vth0_slope1=0
+.param sky130_fd_pr__pfet_01v8__voff_slope1=0
+.param sky130_fd_pr__pfet_01v8__nfactor_slope1=0
+.param sky130_fd_pr__pfet_01v8__wlod_diff=0
+.param sky130_fd_pr__pfet_01v8__kvth0_diff=0
+.param sky130_fd_pr__pfet_01v8__lkvth0_diff=0
+.param sky130_fd_pr__pfet_01v8__wkvth0_diff=0
+.param sky130_fd_pr__pfet_01v8__ku0_diff=0
+.param sky130_fd_pr__pfet_01v8__lku0_diff=0
+.param sky130_fd_pr__pfet_01v8__wku0_diff=0
+.param sky130_fd_pr__pfet_01v8__kvsat_diff=0
+.param mc_mm_switch=0
+.param mc_pr_switch=0
+
+.include "/home/hvt06/Downloads/open_pdks/sky130/sky130A/libs.ref/sky130_fd_pr/spice/sky130_fd_pr__nfet_01v8__tt.pm3.spice"
+.include "/home/hvt06/Downloads/open_pdks/sky130/sky130A/libs.ref/sky130_fd_pr/spice/sky130_fd_pr__pfet_01v8__tt.corner.spice"
+
+Vdd vdd 0 1.8
+
+* Simple PMOS current mirror test: no switches, just mirror + load
+* Diode PMOS: D=pbias, G=pbias, S=VDD, B=VDD
+XMp_diode pbias pbias vdd vdd sky130_fd_pr__pfet_01v8 l=1.0u w=4.0u
+* Mirror PMOS: D=out, G=pbias, S=VDD, B=VDD
+XMp_mir   out   pbias vdd vdd sky130_fd_pr__pfet_01v8 l=1.0u w=4.0u
+* Reference current: 10µA sinking from pbias
+Iref vdd pbias 10u
+* Load: 10pF cap
+Cload out 0 10p
+.ic v(out)=0.9
+
+.control
+  op
+  echo "pbias = $&v(pbias) V"
+  echo "Iref source current = $&Iref#branch A"
+  echo ""
+
+  tran 0.01n 100n uic
+  meas tran v1 FIND v(out) AT=1n
+  meas tran v2 FIND v(out) AT=100n
+  let dv = v2 - v1
+  let i_avg = dv * 10e-12 / 99e-9
+  echo "Vout at 1ns: $&v1 V"
+  echo "Vout at 100ns: $&v2 V"
+  echo "dV = $&dv V"
+  echo "Avg current = $&i_avg A (expect 10uA)"
+  quit
+.endc
+.end

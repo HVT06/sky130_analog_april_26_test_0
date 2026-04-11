@@ -1,0 +1,129 @@
+* =============================================================
+* PLL Schematic Netlist for LVS
+* Sky130A PDK (open_pdks, tt corner)
+* =============================================================
+* This netlist matches the physical layout for LVS comparison.
+* XSPICE PFD replaced with sky130_fd_sc_hd standard cells.
+* =============================================================
+
+.subckt pll_top ref_clk div_out vctrl_mon VPWR VGND
+* Ports:
+*   ref_clk   - reference clock input (analog pin)
+*   div_out   - divided output (analog pin, for oscilloscope)
+*   vctrl_mon - Vctrl monitor (optional analog pin)
+*   VPWR      - 1.8V supply
+*   VGND      - ground
+
+* ================================================================
+* PFD: Two dfrtp_1 DFFs + one nand2_1 for reset
+* dfrtp_1 pinout: CLK D RESET_B VGND VNB VPB VPWR Q
+* nand2_1 pinout: A B VGND VNB VPB VPWR Y
+* ================================================================
+* DFF_UP: D=VPWR(logic 1), CLK=ref_clk, RESET_B=rst_b, Q=up
+Xdff_up ref_clk VPWR rst_b VGND VGND VPWR VPWR up sky130_fd_sc_hd__dfrtp_1
+
+* DFF_DN: D=VPWR(logic 1), CLK=div_clk, RESET_B=rst_b, Q=dn
+Xdff_dn div_clk VPWR rst_b VGND VGND VPWR VPWR dn sky130_fd_sc_hd__dfrtp_1
+
+* Reset = NAND(UP, DN) → active-low reset for dfrtp
+* When both UP=1 and DN=1: NAND=0 → RESET_B=0 → reset asserted
+Xnand_rst up dn VGND VGND VPWR VPWR rst_b sky130_fd_sc_hd__nand2_1
+
+* ================================================================
+* Charge Pump (10µA)
+* ================================================================
+* UP inverter (for PMOS switch which needs active-low)
+Xinv_up up VGND VGND VPWR VPWR up_b sky130_fd_sc_hd__inv_1
+
+* PMOS current mirror + switch
+XMp_diode pbias pbias VPWR VPWR sky130_fd_pr__pfet_01v8 l=1.0u w=4.0u
+XMp_mir   ip_src pbias VPWR VPWR sky130_fd_pr__pfet_01v8 l=1.0u w=4.0u
+XMp_sw    vctrl  up_b  ip_src VPWR sky130_fd_pr__pfet_01v8 l=0.15u w=2.0u
+
+* NMOS current mirror + switch
+XMn_diode nbias nbias VGND VGND sky130_fd_pr__nfet_01v8 l=1.0u w=2.0u
+XMn_mir   in_snk nbias VGND VGND sky130_fd_pr__nfet_01v8 l=1.0u w=2.0u
+XMn_sw    vctrl  dn   in_snk VGND sky130_fd_pr__nfet_01v8 l=0.15u w=1.0u
+
+* Bias current references (10µA each)
+* In layout these would be external bias or on-chip bandgap reference
+* For LVS, represented as ideal current sources
+Iref_p pbias VGND 10u
+Iref_n VPWR nbias 10u
+
+* ================================================================
+* Loop Filter (redesigned for on-chip MOSCAP feasibility)
+* ================================================================
+* R = 4.7 kΩ (precision poly resistor, xhrpoly ~48.2 Ω/sq)
+Xrlf vctrl vlf1 sky130_fd_pr__res_xhigh_po_0p35 w=0.35u l=34.0u mult=1
+* C1 = 10 pF (MOSCAP: NMOS gate cap, gate=top plate, S/D/B=bottom=VGND)
+* MOSCAP area: W×L ≈ 1205 µm² → distributed as multi-finger array
+XMcap1 vlf1 VGND VGND VGND sky130_fd_pr__nfet_01v8 l=2.0u w=602.0u
+* C2 = 1 pF (MOSCAP)
+XMcap2 vctrl VGND VGND VGND sky130_fd_pr__nfet_01v8 l=2.0u w=60.0u
+
+* ================================================================
+* 5-Stage Current-Starved Ring VCO
+* ================================================================
+* Bias: PMOS diode + NMOS V-to-I converter
+XMp_vbias pbias_vco pbias_vco VPWR VPWR sky130_fd_pr__pfet_01v8 l=0.5u w=4.0u
+XMn_vref  pbias_vco vctrl     VGND VGND sky130_fd_pr__nfet_01v8 l=0.5u w=2.0u
+
+* Stage 1
+XMp_s1 VPWR pbias_vco ps1 VPWR sky130_fd_pr__pfet_01v8 l=0.5u w=4.0u
+XMp_i1 ps1  s5        s1  VPWR sky130_fd_pr__pfet_01v8 l=0.15u w=2.0u
+XMn_i1 ns1  s5        s1  VGND sky130_fd_pr__nfet_01v8 l=0.15u w=1.0u
+XMn_k1 VGND vctrl     ns1 VGND sky130_fd_pr__nfet_01v8 l=0.5u w=2.0u
+
+* Stage 2
+XMp_s2 VPWR pbias_vco ps2 VPWR sky130_fd_pr__pfet_01v8 l=0.5u w=4.0u
+XMp_i2 ps2  s1        s2  VPWR sky130_fd_pr__pfet_01v8 l=0.15u w=2.0u
+XMn_i2 ns2  s1        s2  VGND sky130_fd_pr__nfet_01v8 l=0.15u w=1.0u
+XMn_k2 VGND vctrl     ns2 VGND sky130_fd_pr__nfet_01v8 l=0.5u w=2.0u
+
+* Stage 3
+XMp_s3 VPWR pbias_vco ps3 VPWR sky130_fd_pr__pfet_01v8 l=0.5u w=4.0u
+XMp_i3 ps3  s2        s3  VPWR sky130_fd_pr__pfet_01v8 l=0.15u w=2.0u
+XMn_i3 ns3  s2        s3  VGND sky130_fd_pr__nfet_01v8 l=0.15u w=1.0u
+XMn_k3 VGND vctrl     ns3 VGND sky130_fd_pr__nfet_01v8 l=0.5u w=2.0u
+
+* Stage 4
+XMp_s4 VPWR pbias_vco ps4 VPWR sky130_fd_pr__pfet_01v8 l=0.5u w=4.0u
+XMp_i4 ps4  s3        s4  VPWR sky130_fd_pr__pfet_01v8 l=0.15u w=2.0u
+XMn_i4 ns4  s3        s4  VGND sky130_fd_pr__nfet_01v8 l=0.15u w=1.0u
+XMn_k4 VGND vctrl     ns4 VGND sky130_fd_pr__nfet_01v8 l=0.5u w=2.0u
+
+* Stage 5
+XMp_s5 VPWR pbias_vco ps5 VPWR sky130_fd_pr__pfet_01v8 l=0.5u w=4.0u
+XMp_i5 ps5  s4        s5  VPWR sky130_fd_pr__pfet_01v8 l=0.15u w=2.0u
+XMn_i5 ns5  s4        s5  VGND sky130_fd_pr__nfet_01v8 l=0.15u w=1.0u
+XMn_k5 VGND vctrl     ns5 VGND sky130_fd_pr__nfet_01v8 l=0.5u w=2.0u
+
+* Output buffer (two inverters)
+Xinv_buf1 s5 vco_b VGND VGND VPWR VPWR vco_out_i sky130_fd_sc_hd__inv_1
+Xinv_buf2 vco_b VGND VGND VPWR VPWR vco_out sky130_fd_sc_hd__inv_1
+
+* ================================================================
+* Frequency Divider (÷4 using standard cell DFFs)
+* ================================================================
+* div2_1: Toggle DFF (D=Qb, CLK=vco_out)
+* Using dfrtp with RESET_B=VPWR (reset inactive)
+* Need to invert Q to get Qb for toggle feedback
+
+* Stage 1: ÷2
+Xdff_d1 vco_out qb1 VPWR VGND VGND VPWR VPWR q1 sky130_fd_sc_hd__dfrtp_1
+Xinv_d1 q1 VGND VGND VPWR VPWR qb1 sky130_fd_sc_hd__inv_1
+
+* Stage 2: ÷2 (total ÷4)
+Xdff_d2 q1 qb2 VPWR VGND VGND VPWR VPWR q2 sky130_fd_sc_hd__dfrtp_1
+Xinv_d2 q2 VGND VGND VPWR VPWR qb2 sky130_fd_sc_hd__inv_1
+
+* Output buffer for div_clk (feedback) and div_out (observation)
+Xinv_div1 q2 VGND VGND VPWR VPWR div_clk_b sky130_fd_sc_hd__inv_1
+Xinv_div2 div_clk_b VGND VGND VPWR VPWR div_clk sky130_fd_sc_hd__inv_1
+Xinv_dout div_clk VGND VGND VPWR VPWR div_out sky130_fd_sc_hd__inv_1
+
+* Vctrl monitor (direct connection)
+Rmon vctrl vctrl_mon 0
+
+.ends pll_top

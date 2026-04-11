@@ -1,0 +1,76 @@
+* Simple charge pump test
+.title CP Test
+
+.param sky130_fd_pr__nfet_01v8__toxe_slope=0
+.param sky130_fd_pr__nfet_01v8__vth0_slope=0
+.param sky130_fd_pr__nfet_01v8__voff_slope=0
+.param sky130_fd_pr__nfet_01v8__toxe_slope1=0
+.param sky130_fd_pr__nfet_01v8__vth0_slope1=0
+.param sky130_fd_pr__nfet_01v8__voff_slope1=0
+.param sky130_fd_pr__pfet_01v8__toxe_slope=0
+.param sky130_fd_pr__pfet_01v8__vth0_slope=0
+.param sky130_fd_pr__pfet_01v8__voff_slope=0
+.param sky130_fd_pr__pfet_01v8__nfactor_slope=0
+.param sky130_fd_pr__pfet_01v8__toxe_slope1=0
+.param sky130_fd_pr__pfet_01v8__vth0_slope1=0
+.param sky130_fd_pr__pfet_01v8__voff_slope1=0
+.param sky130_fd_pr__pfet_01v8__nfactor_slope1=0
+.param sky130_fd_pr__pfet_01v8__wlod_diff=0
+.param sky130_fd_pr__pfet_01v8__kvth0_diff=0
+.param sky130_fd_pr__pfet_01v8__lkvth0_diff=0
+.param sky130_fd_pr__pfet_01v8__wkvth0_diff=0
+.param sky130_fd_pr__pfet_01v8__ku0_diff=0
+.param sky130_fd_pr__pfet_01v8__lku0_diff=0
+.param sky130_fd_pr__pfet_01v8__wku0_diff=0
+.param sky130_fd_pr__pfet_01v8__kvsat_diff=0
+.param mc_mm_switch=0
+.param mc_pr_switch=0
+
+.include "/home/hvt06/Downloads/open_pdks/sky130/sky130A/libs.ref/sky130_fd_pr/spice/sky130_fd_pr__nfet_01v8__tt.pm3.spice"
+.include "/home/hvt06/Downloads/open_pdks/sky130/sky130A/libs.ref/sky130_fd_pr/spice/sky130_fd_pr__pfet_01v8__tt.corner.spice"
+
+Vdd vdd 0 1.8
+
+.subckt inv in out vdd_l vss_l
+XMp vdd_l in out vdd_l sky130_fd_pr__pfet_01v8 l=0.15u w=1.0u
+XMn vss_l in out vss_l sky130_fd_pr__nfet_01v8 l=0.15u w=0.5u
+.ends inv
+
+* Charge pump: UP=high → source current → Vctrl increases
+.subckt charge_pump up dn vout vdd_l vss_l
+Xinv_up up up_b vdd_l vss_l inv
+
+* PMOS mirror
+XMp_diode vdd_l pbias pbias vdd_l sky130_fd_pr__pfet_01v8 l=1.0u w=4.0u
+XMp_mir   vdd_l pbias ip_src vdd_l sky130_fd_pr__pfet_01v8 l=1.0u w=4.0u
+XMp_sw    ip_src up_b  vout   vdd_l sky130_fd_pr__pfet_01v8 l=0.15u w=2.0u
+
+* NMOS mirror
+XMn_diode vss_l nbias nbias vss_l sky130_fd_pr__nfet_01v8 l=1.0u w=2.0u
+XMn_mir   vss_l nbias in_snk vss_l sky130_fd_pr__nfet_01v8 l=1.0u w=2.0u
+XMn_sw    in_snk dn   vout   vss_l sky130_fd_pr__nfet_01v8 l=0.15u w=1.0u
+
+Iref_p vdd_l pbias 10u
+Iref_n nbias vss_l 10u
+.ends charge_pump
+
+* Test: UP=1 for 10ns, DN=0 always → should charge Vctrl up
+Vup up 0 PULSE(0 1.8 5n 0.1n 0.1n 10n 100n)
+Vdn dn 0 0
+
+Xcp up dn vctrl vdd 0 charge_pump
+Clf vctrl 0 10p
+.ic v(vctrl)=0.9
+
+.control
+  tran 0.01n 50n uic
+  meas tran v1 FIND v(vctrl) AT=4n
+  meas tran v2 FIND v(vctrl) AT=15n
+  let dv = v2 - v1
+  echo "Vctrl before UP: $&v1 V"
+  echo "Vctrl after 10ns UP: $&v2 V"
+  echo "Delta = $&dv V"
+  echo "Expected: 10uA * 10ns / 10pF = 10mV"
+  quit
+.endc
+.end

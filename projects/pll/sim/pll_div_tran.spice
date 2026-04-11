@@ -1,0 +1,169 @@
+* =============================================================
+* Frequency Divider -- Transient Functional Verification
+* Sky130A PDK  (open_pdks, tt corner)
+* =============================================================
+* TG-based master-slave DFF toggle dividers
+* Test: ÷2, ÷4, ÷8, ÷16 division from 500 MHz input
+* =============================================================
+
+.title Frequency Divider Transient Test -- Sky130A
+
+.param sky130_fd_pr__nfet_01v8__toxe_slope=0
+.param sky130_fd_pr__nfet_01v8__vth0_slope=0
+.param sky130_fd_pr__nfet_01v8__voff_slope=0
+.param sky130_fd_pr__nfet_01v8__toxe_slope1=0
+.param sky130_fd_pr__nfet_01v8__vth0_slope1=0
+.param sky130_fd_pr__nfet_01v8__voff_slope1=0
+.param sky130_fd_pr__pfet_01v8__toxe_slope=0
+.param sky130_fd_pr__pfet_01v8__vth0_slope=0
+.param sky130_fd_pr__pfet_01v8__voff_slope=0
+.param sky130_fd_pr__pfet_01v8__nfactor_slope=0
+.param sky130_fd_pr__pfet_01v8__toxe_slope1=0
+.param sky130_fd_pr__pfet_01v8__vth0_slope1=0
+.param sky130_fd_pr__pfet_01v8__voff_slope1=0
+.param sky130_fd_pr__pfet_01v8__nfactor_slope1=0
+.param sky130_fd_pr__pfet_01v8__wlod_diff=0
+.param sky130_fd_pr__pfet_01v8__kvth0_diff=0
+.param sky130_fd_pr__pfet_01v8__lkvth0_diff=0
+.param sky130_fd_pr__pfet_01v8__wkvth0_diff=0
+.param sky130_fd_pr__pfet_01v8__ku0_diff=0
+.param sky130_fd_pr__pfet_01v8__lku0_diff=0
+.param sky130_fd_pr__pfet_01v8__wku0_diff=0
+.param sky130_fd_pr__pfet_01v8__kvsat_diff=0
+.param mc_mm_switch=0
+.param mc_pr_switch=0
+
+.include "/home/hvt06/Downloads/open_pdks/sky130/sky130A/libs.ref/sky130_fd_pr/spice/sky130_fd_pr__nfet_01v8__tt.pm3.spice"
+.include "/home/hvt06/Downloads/open_pdks/sky130/sky130A/libs.ref/sky130_fd_pr/spice/sky130_fd_pr__pfet_01v8__tt.corner.spice"
+
+Vdd vdd 0 1.8
+
+* ================================================================
+* SUBCIRCUIT: Inverter
+* ================================================================
+.subckt inv in out vdd_l vss_l
+XMp vdd_l in out vdd_l sky130_fd_pr__pfet_01v8 l=0.15u w=0.84u
+XMn vss_l in out vss_l sky130_fd_pr__nfet_01v8 l=0.15u w=0.42u
+.ends inv
+
+* ================================================================
+* SUBCIRCUIT: Transmission Gate
+* ================================================================
+.subckt tgate in out ctrl ctrl_b vdd_l vss_l
+XMn in ctrl  out vss_l sky130_fd_pr__nfet_01v8 l=0.15u w=0.84u
+XMp in ctrl_b out vdd_l sky130_fd_pr__pfet_01v8 l=0.15u w=1.68u
+.ends tgate
+
+* ================================================================
+* SUBCIRCUIT: TG Master-Slave DFF (rising-edge triggered)
+* ================================================================
+* D sampled on rising clk edge.
+* Signal path: D → m_in → (INV) → m_out → s_in → (INV) → q
+* So Q = D (even number of inversions from D to q output).
+* qb = NOT(q), provided via an output inverter.
+.subckt ms_dff d clk q qb vdd_l vss_l
+* Clock inverter
+Xinv_ck clk clk_b vdd_l vss_l inv
+
+* === Master latch (transparent when clk=0) ===
+Xtg_m d m_in clk_b clk vdd_l vss_l tgate
+Xinv_m1 m_in m_out vdd_l vss_l inv
+Xinv_m2 m_out m_in_fb vdd_l vss_l inv
+Xtg_mfb m_in_fb m_in clk clk_b vdd_l vss_l tgate
+
+* === Slave latch (transparent when clk=1) ===
+Xtg_s m_out s_in clk clk_b vdd_l vss_l tgate
+Xinv_s1 s_in q vdd_l vss_l inv
+Xinv_s2 q s_in_fb vdd_l vss_l inv
+Xtg_sfb s_in_fb s_in clk_b clk vdd_l vss_l tgate
+
+* Qb output
+Xinv_qb q qb vdd_l vss_l inv
+.ends ms_dff
+
+* ================================================================
+* SUBCIRCUIT: Divide-by-2 (toggle DFF: Qb → D)
+* ================================================================
+* Q = D (sampled). For toggle: D = NOT(Q) = Qb.
+* Feed Qb back to D.
+.subckt div2 clk out vdd_l vss_l
+Xff qb_fb clk q_int qb_fb vdd_l vss_l ms_dff
+* qb_fb is both the Qb output and the D input (toggle connection)
+* Output buffer
+Xinv_out q_int out vdd_l vss_l inv
+.ends div2
+
+* ================================================================
+* Divider Chain: ÷2 → ÷4 → ÷8 → ÷16
+* ================================================================
+
+* Input: 500 MHz clock (period = 2ns)
+Vclk clk_in 0 PULSE(0 1.8 0 0.05n 0.05n 0.95n 2n)
+
+* Stage 1: ÷2 (500 MHz → 250 MHz)
+Xdiv1 clk_in div2 vdd 0 div2
+
+* Stage 2: ÷2 (250 MHz → 125 MHz)
+Xdiv2 div2 div4 vdd 0 div2
+
+* Stage 3: ÷2 (125 MHz → 62.5 MHz)
+Xdiv3 div4 div8 vdd 0 div2
+
+* Stage 4: ÷2 (62.5 MHz → 31.25 MHz)
+Xdiv4 div8 div16 vdd 0 div2
+
+* ================================================================
+* Simulation
+* ================================================================
+.control
+  set filetype=ascii
+  set wr_vecnames
+
+  tran 0.05n 200n
+
+  * Measure frequencies at each divider output
+  echo "=== Divider Chain Frequency Measurement ==="
+
+  * Input: 500 MHz → period = 2ns
+  meas tran tin1 WHEN v(clk_in)=0.9 RISE=5
+  meas tran tin2 WHEN v(clk_in)=0.9 RISE=6
+  let pin = tin2 - tin1
+  let fin = 1e-6 / pin
+  echo "Input: freq = $&fin MHz (expect 500)"
+
+  * ÷2 output
+  meas tran t2_1 WHEN v(div2)=0.9 RISE=3
+  meas tran t2_2 WHEN v(div2)=0.9 RISE=4
+  let p2 = t2_2 - t2_1
+  let f2 = 1e-6 / p2
+  echo "Div2: freq = $&f2 MHz (expect 250)"
+
+  * ÷4 output
+  meas tran t4_1 WHEN v(div4)=0.9 RISE=3
+  meas tran t4_2 WHEN v(div4)=0.9 RISE=4
+  let p4 = t4_2 - t4_1
+  let f4 = 1e-6 / p4
+  echo "Div4: freq = $&f4 MHz (expect 125)"
+
+  * ÷8 output
+  meas tran t8_1 WHEN v(div8)=0.9 RISE=2
+  meas tran t8_2 WHEN v(div8)=0.9 RISE=3
+  let p8 = t8_2 - t8_1
+  let f8 = 1e-6 / p8
+  echo "Div8: freq = $&f8 MHz (expect 62.5)"
+
+  * ÷16 output
+  meas tran t16_1 WHEN v(div16)=0.9 RISE=2
+  meas tran t16_2 WHEN v(div16)=0.9 RISE=3
+  let p16 = t16_2 - t16_1
+  let f16 = 1e-6 / p16
+  echo "Div16: freq = $&f16 MHz (expect 31.25)"
+
+  wrdata results/pll_div_tran.tsv v(clk_in) v(div2) v(div4) v(div8) v(div16)
+
+  echo ""
+  echo "=== Divider Test Complete ==="
+  quit
+.endc
+
+.end

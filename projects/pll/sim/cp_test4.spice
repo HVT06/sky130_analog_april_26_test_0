@@ -1,0 +1,99 @@
+* Fixed charge pump current test
+.title CP Debug v4
+
+.param sky130_fd_pr__nfet_01v8__toxe_slope=0
+.param sky130_fd_pr__nfet_01v8__vth0_slope=0
+.param sky130_fd_pr__nfet_01v8__voff_slope=0
+.param sky130_fd_pr__nfet_01v8__toxe_slope1=0
+.param sky130_fd_pr__nfet_01v8__vth0_slope1=0
+.param sky130_fd_pr__nfet_01v8__voff_slope1=0
+.param sky130_fd_pr__pfet_01v8__toxe_slope=0
+.param sky130_fd_pr__pfet_01v8__vth0_slope=0
+.param sky130_fd_pr__pfet_01v8__voff_slope=0
+.param sky130_fd_pr__pfet_01v8__nfactor_slope=0
+.param sky130_fd_pr__pfet_01v8__toxe_slope1=0
+.param sky130_fd_pr__pfet_01v8__vth0_slope1=0
+.param sky130_fd_pr__pfet_01v8__voff_slope1=0
+.param sky130_fd_pr__pfet_01v8__nfactor_slope1=0
+.param sky130_fd_pr__pfet_01v8__wlod_diff=0
+.param sky130_fd_pr__pfet_01v8__kvth0_diff=0
+.param sky130_fd_pr__pfet_01v8__lkvth0_diff=0
+.param sky130_fd_pr__pfet_01v8__wkvth0_diff=0
+.param sky130_fd_pr__pfet_01v8__ku0_diff=0
+.param sky130_fd_pr__pfet_01v8__lku0_diff=0
+.param sky130_fd_pr__pfet_01v8__wku0_diff=0
+.param sky130_fd_pr__pfet_01v8__kvsat_diff=0
+.param mc_mm_switch=0
+.param mc_pr_switch=0
+
+.include "/home/hvt06/Downloads/open_pdks/sky130/sky130A/libs.ref/sky130_fd_pr/spice/sky130_fd_pr__nfet_01v8__tt.pm3.spice"
+.include "/home/hvt06/Downloads/open_pdks/sky130/sky130A/libs.ref/sky130_fd_pr/spice/sky130_fd_pr__pfet_01v8__tt.corner.spice"
+
+Vdd vdd 0 1.8
+
+.subckt inv in out vdd_l vss_l
+XMp vdd_l in out vdd_l sky130_fd_pr__pfet_01v8 l=0.15u w=1.0u
+XMn vss_l in out vss_l sky130_fd_pr__nfet_01v8 l=0.15u w=0.5u
+.ends inv
+
+* ---- Test 1: Bare PMOS mirror (Iref sinks from pbias to GND) ----
+* Diode PMOS
+XMp_diode pbias pbias vdd vdd sky130_fd_pr__pfet_01v8 l=1.0u w=4.0u
+* Mirror PMOS
+XMp_mir   mout  pbias vdd vdd sky130_fd_pr__pfet_01v8 l=1.0u w=4.0u
+* Iref: 10µA sinking from pbias to GND
+Iref pbias 0 10u
+Cload mout 0 10p
+.ic v(mout)=0.9
+
+* ---- Test 2: Full CP with switches ----
+.subckt charge_pump up dn vout vdd_l vss_l
+Xinv_up up up_b vdd_l vss_l inv
+
+* PMOS mirror: Iref sinks 10µA from pbs to GND
+XMp_d pbs pbs vdd_l vdd_l sky130_fd_pr__pfet_01v8 l=1.0u w=4.0u
+XMp_m ips pbs vdd_l vdd_l sky130_fd_pr__pfet_01v8 l=1.0u w=4.0u
+Irp pbs vss_l 10u
+* PMOS switch: up_b=0 connects mirror to vout
+XMp_sw vout up_b ips vdd_l sky130_fd_pr__pfet_01v8 l=0.15u w=2.0u
+
+* NMOS mirror: Iref sources 10µA from VDD to nbs
+XMn_d nbs nbs vss_l vss_l sky130_fd_pr__nfet_01v8 l=1.0u w=2.0u
+XMn_m ins nbs vss_l vss_l sky130_fd_pr__nfet_01v8 l=1.0u w=2.0u
+Irn vdd_l nbs 10u
+* NMOS switch: dn=1 connects mirror to vout
+XMn_sw vout dn ins vss_l sky130_fd_pr__nfet_01v8 l=0.15u w=1.0u
+.ends charge_pump
+
+Vup up 0 PULSE(0 1.8 5n 0.1n 0.1n 10n 100n)
+Vdn dn 0 0
+Xcp up dn vctrl vdd 0 charge_pump
+Clf vctrl 0 10p
+.ic v(vctrl)=0.9
+
+.control
+  * First check mirror alone
+  op
+  echo "pbias = $&v(pbias) V"
+  echo "mirror out = $&v(mout) V"
+  echo ""
+
+  * Now transient of full CP
+  tran 0.01n 50n uic
+  meas tran v1 FIND v(vctrl) AT=4n
+  meas tran v2 FIND v(vctrl) AT=15.5n
+  let dv = v2 - v1
+  echo "Vctrl before UP: $&v1 V"
+  echo "Vctrl after 10ns UP: $&v2 V"
+  echo "Delta = $&dv V  (expect ~10mV)"
+  
+  * Also mirror standalone
+  meas tran m1 FIND v(mout) AT=1n
+  meas tran m2 FIND v(mout) AT=50n
+  let dm = m2 - m1
+  let im = dm * 10e-12 / 49e-9
+  echo "Mirror out dV = $&dm V (50ns)"
+  echo "Mirror avg I = $&im A (expect 10uA)"
+  quit
+.endc
+.end

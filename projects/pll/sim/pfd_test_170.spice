@@ -1,0 +1,104 @@
+* =============================================================
+* PFD standalone test: ref=100MHz, div=170MHz
+* Should produce DN >> UP
+* =============================================================
+.title PFD Test -- DN should dominate
+
+.param sky130_fd_pr__nfet_01v8__toxe_slope=0
+.param sky130_fd_pr__nfet_01v8__vth0_slope=0
+.param sky130_fd_pr__nfet_01v8__voff_slope=0
+.param sky130_fd_pr__nfet_01v8__toxe_slope1=0
+.param sky130_fd_pr__nfet_01v8__vth0_slope1=0
+.param sky130_fd_pr__nfet_01v8__voff_slope1=0
+.param sky130_fd_pr__pfet_01v8__toxe_slope=0
+.param sky130_fd_pr__pfet_01v8__vth0_slope=0
+.param sky130_fd_pr__pfet_01v8__voff_slope=0
+.param sky130_fd_pr__pfet_01v8__nfactor_slope=0
+.param sky130_fd_pr__pfet_01v8__toxe_slope1=0
+.param sky130_fd_pr__pfet_01v8__vth0_slope1=0
+.param sky130_fd_pr__pfet_01v8__voff_slope1=0
+.param sky130_fd_pr__pfet_01v8__nfactor_slope1=0
+.param sky130_fd_pr__pfet_01v8__wlod_diff=0
+.param sky130_fd_pr__pfet_01v8__kvth0_diff=0
+.param sky130_fd_pr__pfet_01v8__lkvth0_diff=0
+.param sky130_fd_pr__pfet_01v8__wkvth0_diff=0
+.param sky130_fd_pr__pfet_01v8__ku0_diff=0
+.param sky130_fd_pr__pfet_01v8__lku0_diff=0
+.param sky130_fd_pr__pfet_01v8__wku0_diff=0
+.param sky130_fd_pr__pfet_01v8__kvsat_diff=0
+.param mc_mm_switch=0
+.param mc_pr_switch=0
+
+.include "/home/hvt06/Downloads/open_pdks/sky130/sky130A/libs.ref/sky130_fd_pr/spice/sky130_fd_pr__nfet_01v8__tt.pm3.spice"
+.include "/home/hvt06/Downloads/open_pdks/sky130/sky130A/libs.ref/sky130_fd_pr/spice/sky130_fd_pr__pfet_01v8__tt.corner.spice"
+
+Vdd vdd 0 1.8
+
+.subckt inv in out vdd_l vss_l
+XMp vdd_l in out vdd_l sky130_fd_pr__pfet_01v8 l=0.15u w=1.0u
+XMn vss_l in out vss_l sky130_fd_pr__nfet_01v8 l=0.15u w=0.5u
+.ends inv
+
+.subckt nand2 a b out vdd_l vss_l
+XMp1 vdd_l a   out vdd_l sky130_fd_pr__pfet_01v8 l=0.15u w=1.0u
+XMp2 vdd_l b   out vdd_l sky130_fd_pr__pfet_01v8 l=0.15u w=1.0u
+XMn1 out   a   mid vss_l sky130_fd_pr__nfet_01v8 l=0.15u w=1.0u
+XMn2 mid   b   vss_l vss_l sky130_fd_pr__nfet_01v8 l=0.15u w=1.0u
+.ends nand2
+
+.subckt pfd_dff clk rst_n q vdd_l vss_l
+Xinv1 clk  d1  vdd_l vss_l inv
+Xinv2 d1   d2  vdd_l vss_l inv
+Xinv3 d2   d3  vdd_l vss_l inv
+Xnand_edge clk d3 nand_out vdd_l vss_l nand2
+Xinv_pulse nand_out pulse vdd_l vss_l inv
+Xinv_rst rst_n rst vdd_l vss_l inv
+XMp_q1 pq1 rst  vdd_l vdd_l sky130_fd_pr__pfet_01v8 l=0.15u w=1.0u
+XMp_q2 q   q_n  pq1   vdd_l sky130_fd_pr__pfet_01v8 l=0.15u w=1.0u
+XMn_q1 q   rst  vss_l vss_l sky130_fd_pr__nfet_01v8 l=0.15u w=0.5u
+XMn_q2 q   q_n  vss_l vss_l sky130_fd_pr__nfet_01v8 l=0.15u w=0.5u
+XMp_qn1 pqn1 pulse vdd_l vdd_l sky130_fd_pr__pfet_01v8 l=0.15u w=1.0u
+XMp_qn2 q_n  q     pqn1  vdd_l sky130_fd_pr__pfet_01v8 l=0.15u w=1.0u
+XMn_qn1 q_n  pulse vss_l vss_l sky130_fd_pr__nfet_01v8 l=0.15u w=0.5u
+XMn_qn2 q_n  q     vss_l vss_l sky130_fd_pr__nfet_01v8 l=0.15u w=0.5u
+.ends pfd_dff
+
+.subckt pfd ref_clk div_clk up dn vdd_l vss_l
+Xdff_up ref_clk rst_n up vdd_l vss_l pfd_dff
+Xdff_dn div_clk rst_n dn vdd_l vss_l pfd_dff
+Xnand_rst up dn and_n vdd_l vss_l nand2
+Xinv_and and_n and_out vdd_l vss_l inv
+Xinv_d1 and_out d1  vdd_l vss_l inv
+Xinv_d2 d1      d2  vdd_l vss_l inv
+Xinv_d3 d2      d3  vdd_l vss_l inv
+Xinv_d4 d3      d4  vdd_l vss_l inv
+Xinv_rst d4 rst_n vdd_l vss_l inv
+.ends pfd
+
+* ref = 100 MHz, div = 170 MHz (div > ref)
+Vref ref_clk 0 PULSE(0 1.8 0 0.1n 0.1n 4.9n 10n)
+Vdiv div_clk 0 PULSE(0 1.8 0 0.1n 0.1n 2.84n 5.882n)
+
+Xpfd ref_clk div_clk up dn vdd 0 pfd
+
+* Load outputs
+Rup up 0 100k
+Rdn dn 0 100k
+
+.control
+  set filetype=ascii
+  set wr_vecnames
+  tran 0.01n 500n uic
+  
+  * Measure duty cycles
+  let up_int = integ(v(up)) / 500n
+  let dn_int = integ(v(dn)) / 500n
+  echo "UP average = $&up_int V"
+  echo "DN average = $&dn_int V"
+  echo "Expected: DN >> UP (since div=170MHz > ref=100MHz)"
+  
+  wrdata results/pfd_test_170.tsv v(ref_clk) v(div_clk) v(up) v(dn)
+  quit
+.endc
+
+.end

@@ -1,0 +1,276 @@
+* =============================================================
+* Full PLL Loop -- with Ideal Behavioral PFD+CP
+* Sky130A PDK  (open_pdks, tt corner)
+* =============================================================
+* Tests: VCO + Loop Filter + Divider with ideal PFD/CP
+* to verify loop dynamics independently of transistor PFD/CP.
+* =============================================================
+
+.title PLL with Ideal PFD+CP -- Sky130A
+
+.param sky130_fd_pr__nfet_01v8__toxe_slope=0
+.param sky130_fd_pr__nfet_01v8__vth0_slope=0
+.param sky130_fd_pr__nfet_01v8__voff_slope=0
+.param sky130_fd_pr__nfet_01v8__toxe_slope1=0
+.param sky130_fd_pr__nfet_01v8__vth0_slope1=0
+.param sky130_fd_pr__nfet_01v8__voff_slope1=0
+.param sky130_fd_pr__pfet_01v8__toxe_slope=0
+.param sky130_fd_pr__pfet_01v8__vth0_slope=0
+.param sky130_fd_pr__pfet_01v8__voff_slope=0
+.param sky130_fd_pr__pfet_01v8__nfactor_slope=0
+.param sky130_fd_pr__pfet_01v8__toxe_slope1=0
+.param sky130_fd_pr__pfet_01v8__vth0_slope1=0
+.param sky130_fd_pr__pfet_01v8__voff_slope1=0
+.param sky130_fd_pr__pfet_01v8__nfactor_slope1=0
+.param sky130_fd_pr__pfet_01v8__wlod_diff=0
+.param sky130_fd_pr__pfet_01v8__kvth0_diff=0
+.param sky130_fd_pr__pfet_01v8__lkvth0_diff=0
+.param sky130_fd_pr__pfet_01v8__wkvth0_diff=0
+.param sky130_fd_pr__pfet_01v8__ku0_diff=0
+.param sky130_fd_pr__pfet_01v8__lku0_diff=0
+.param sky130_fd_pr__pfet_01v8__wku0_diff=0
+.param sky130_fd_pr__pfet_01v8__kvsat_diff=0
+.param mc_mm_switch=0
+.param mc_pr_switch=0
+
+.include "/home/hvt06/Downloads/open_pdks/sky130/sky130A/libs.ref/sky130_fd_pr/spice/sky130_fd_pr__nfet_01v8__tt.pm3.spice"
+.include "/home/hvt06/Downloads/open_pdks/sky130/sky130A/libs.ref/sky130_fd_pr/spice/sky130_fd_pr__pfet_01v8__tt.corner.spice"
+
+Vdd vdd 0 1.8
+
+* ================================================================
+* SUBCIRCUIT: Inverter (for divider)
+* ================================================================
+.subckt inv in out vdd_l vss_l
+XMp vdd_l in out vdd_l sky130_fd_pr__pfet_01v8 l=0.15u w=1.0u
+XMn vss_l in out vss_l sky130_fd_pr__nfet_01v8 l=0.15u w=0.5u
+.ends inv
+
+* ================================================================
+* SUBCIRCUIT: Transmission Gate (for divider)
+* ================================================================
+.subckt tgate in out ctrl ctrl_b vdd_l vss_l
+XMn in ctrl  out vss_l sky130_fd_pr__nfet_01v8 l=0.15u w=0.84u
+XMp in ctrl_b out vdd_l sky130_fd_pr__pfet_01v8 l=0.15u w=1.68u
+.ends tgate
+
+* ================================================================
+* SUBCIRCUIT: 5-Stage Current-Starved Ring VCO
+* ================================================================
+.subckt ring_vco vctrl vco_out vdd_l vss_l
+XMp_diode pbias pbias vdd_l vdd_l sky130_fd_pr__pfet_01v8 l=0.5u w=4.0u
+XMn_ref   pbias vctrl vss_l vss_l sky130_fd_pr__nfet_01v8 l=0.5u w=2.0u
+
+XMp_s1 vdd_l pbias  ps1  vdd_l sky130_fd_pr__pfet_01v8 l=0.5u w=4.0u
+XMp_i1 ps1   s5     s1   vdd_l sky130_fd_pr__pfet_01v8 l=0.15u w=2.0u
+XMn_i1 ns1   s5     s1   vss_l sky130_fd_pr__nfet_01v8 l=0.15u w=1.0u
+XMn_k1 vss_l vctrl  ns1  vss_l sky130_fd_pr__nfet_01v8 l=0.5u w=2.0u
+Cl1 s1 vss_l 10f
+
+XMp_s2 vdd_l pbias  ps2  vdd_l sky130_fd_pr__pfet_01v8 l=0.5u w=4.0u
+XMp_i2 ps2   s1     s2   vdd_l sky130_fd_pr__pfet_01v8 l=0.15u w=2.0u
+XMn_i2 ns2   s1     s2   vss_l sky130_fd_pr__nfet_01v8 l=0.15u w=1.0u
+XMn_k2 vss_l vctrl  ns2  vss_l sky130_fd_pr__nfet_01v8 l=0.5u w=2.0u
+Cl2 s2 vss_l 10f
+
+XMp_s3 vdd_l pbias  ps3  vdd_l sky130_fd_pr__pfet_01v8 l=0.5u w=4.0u
+XMp_i3 ps3   s2     s3   vdd_l sky130_fd_pr__pfet_01v8 l=0.15u w=2.0u
+XMn_i3 ns3   s2     s3   vss_l sky130_fd_pr__nfet_01v8 l=0.15u w=1.0u
+XMn_k3 vss_l vctrl  ns3  vss_l sky130_fd_pr__nfet_01v8 l=0.5u w=2.0u
+Cl3 s3 vss_l 10f
+
+XMp_s4 vdd_l pbias  ps4  vdd_l sky130_fd_pr__pfet_01v8 l=0.5u w=4.0u
+XMp_i4 ps4   s3     s4   vdd_l sky130_fd_pr__pfet_01v8 l=0.15u w=2.0u
+XMn_i4 ns4   s3     s4   vss_l sky130_fd_pr__nfet_01v8 l=0.15u w=1.0u
+XMn_k4 vss_l vctrl  ns4  vss_l sky130_fd_pr__nfet_01v8 l=0.5u w=2.0u
+Cl4 s4 vss_l 10f
+
+XMp_s5 vdd_l pbias  ps5  vdd_l sky130_fd_pr__pfet_01v8 l=0.5u w=4.0u
+XMp_i5 ps5   s4     s5   vdd_l sky130_fd_pr__pfet_01v8 l=0.15u w=2.0u
+XMn_i5 ns5   s4     s5   vss_l sky130_fd_pr__nfet_01v8 l=0.15u w=1.0u
+XMn_k5 vss_l vctrl  ns5  vss_l sky130_fd_pr__nfet_01v8 l=0.5u w=2.0u
+Cl5 s5 vss_l 10f
+
+Xinv_buf s5 vco_out vdd_l vss_l inv
+.ends ring_vco
+
+* ================================================================
+* SUBCIRCUIT: TG Master-Slave DFF (for divider)
+* ================================================================
+.subckt ms_dff d clk q qb vdd_l vss_l
+Xinv_ck clk clk_b vdd_l vss_l inv
+Xtg_m d m_in clk_b clk vdd_l vss_l tgate
+Xinv_m1 m_in m_out vdd_l vss_l inv
+Xinv_m2 m_out m_in_fb vdd_l vss_l inv
+Xtg_mfb m_in_fb m_in clk clk_b vdd_l vss_l tgate
+Xtg_s m_out s_in clk clk_b vdd_l vss_l tgate
+Xinv_s1 s_in s_out vdd_l vss_l inv
+Xinv_s2 s_out s_in_fb vdd_l vss_l inv
+Xtg_sfb s_in_fb s_in clk_b clk vdd_l vss_l tgate
+Xinv_q s_out qb vdd_l vss_l inv
+Xinv_qb qb q vdd_l vss_l inv
+.ends ms_dff
+
+.subckt div2 clk out vdd_l vss_l
+Xdff qb_fb clk out qb_fb vdd_l vss_l ms_dff
+.ends div2
+
+.subckt div4 clk out vdd_l vss_l
+Xd1 clk mid vdd_l vss_l div2
+Xd2 mid out vdd_l vss_l div2
+.ends div4
+
+* ================================================================
+* TOP-LEVEL CIRCUIT
+* ================================================================
+* Reference clock
+Vref ref_clk 0 PULSE(0 1.8 0 0.1n 0.1n 4.9n 10n)
+
+* ================================================================
+* Ideal Behavioral PFD + CP
+* 
+* Since XSPICE digital models have syntax issues, use a simpler
+* approach: directly use the transistor-level PFD but with an
+* ideal current-source CP (VCCS). This isolates CP non-ideality.
+* 
+* Actually, let's use the simplest possible approach:
+* an ideal VCCS charge pump with the transistor PFD.
+* ================================================================
+
+* ================================================================
+* SUBCIRCUIT: NAND2
+* ================================================================
+.subckt nand2 a b out vdd_l vss_l
+XMp1 vdd_l a   out vdd_l sky130_fd_pr__pfet_01v8 l=0.15u w=1.0u
+XMp2 vdd_l b   out vdd_l sky130_fd_pr__pfet_01v8 l=0.15u w=1.0u
+XMn1 out   a   mid vss_l sky130_fd_pr__nfet_01v8 l=0.15u w=1.0u
+XMn2 mid   b   vss_l vss_l sky130_fd_pr__nfet_01v8 l=0.15u w=1.0u
+.ends nand2
+
+* ================================================================
+* SUBCIRCUIT: PFD DFF (edge-detector + NOR SR latch)
+* ================================================================
+.subckt pfd_dff clk rst_n q vdd_l vss_l
+Xinv1 clk  d1  vdd_l vss_l inv
+Xinv2 d1   d2  vdd_l vss_l inv
+Xinv3 d2   d3  vdd_l vss_l inv
+Xinv4 d3   d4  vdd_l vss_l inv
+Xinv5 d4   d5  vdd_l vss_l inv
+Xinv6 d5   d6  vdd_l vss_l inv
+Xinv7 d6   d7  vdd_l vss_l inv
+Xnand_edge clk d7 nand_out vdd_l vss_l nand2
+Xinv_pulse nand_out pulse vdd_l vss_l inv
+Xinv_rst rst_n rst vdd_l vss_l inv
+XMp_q1 pq1 rst  vdd_l vdd_l sky130_fd_pr__pfet_01v8 l=0.15u w=1.0u
+XMp_q2 q   q_n  pq1   vdd_l sky130_fd_pr__pfet_01v8 l=0.15u w=1.0u
+XMn_q1 q   rst  vss_l vss_l sky130_fd_pr__nfet_01v8 l=0.15u w=0.5u
+XMn_q2 q   q_n  vss_l vss_l sky130_fd_pr__nfet_01v8 l=0.15u w=0.5u
+XMp_qn1 pqn1 pulse vdd_l vdd_l sky130_fd_pr__pfet_01v8 l=0.15u w=1.0u
+XMp_qn2 q_n  q     pqn1  vdd_l sky130_fd_pr__pfet_01v8 l=0.15u w=1.0u
+XMn_qn1 q_n  pulse vss_l vss_l sky130_fd_pr__nfet_01v8 l=0.15u w=0.5u
+XMn_qn2 q_n  q     vss_l vss_l sky130_fd_pr__nfet_01v8 l=0.15u w=0.5u
+.ends pfd_dff
+
+* ================================================================
+* SUBCIRCUIT: Phase-Frequency Detector
+* ================================================================
+.subckt pfd ref_clk div_clk up dn vdd_l vss_l
+Xdff_up ref_clk rst_n up vdd_l vss_l pfd_dff
+Xdff_dn div_clk rst_n dn vdd_l vss_l pfd_dff
+Xnand_rst up dn and_n vdd_l vss_l nand2
+Xinv_and and_n and_out vdd_l vss_l inv
+Xinv_d1 and_out d1  vdd_l vss_l inv
+Xinv_d2 d1      d2  vdd_l vss_l inv
+Xinv_d3 d2      d3  vdd_l vss_l inv
+Xinv_d4 d3      d4  vdd_l vss_l inv
+Xinv_rst d4 rst_n vdd_l vss_l inv
+.ends pfd
+
+* PFD instance
+Xpfd ref_clk div_clk up dn vdd 0 pfd
+
+* Ideal Charge Pump using VCCS (voltage-controlled current source)
+* G syntax: Gname n+ n- nc+ nc- value
+* NGSPICE convention: positive current flows from n+ to n- INSIDE the source
+* So G n+ n- acts as a SINK on n+ (current leaves n+)
+* UP high (1.8V) → source 10µA into vctrl → use G 0 vctrl (sinks from GND = sources into vctrl)
+* DN high (1.8V) → sink 10µA from vctrl → use G vctrl 0 (sinks from vctrl)
+Gcp_up 0 vctrl up 0 5.556u
+Gcp_dn vctrl 0 dn 0 5.556u
+
+* Loop Filter
+Rlf vctrl vlf1 625
+Clf1 vlf1 0 500p
+Clf2 vctrl 0 50p
+
+* VCO
+Xvco vctrl vco_out vdd 0 ring_vco
+
+* Feedback divider ÷4
+Xdiv vco_out div_clk vdd 0 div4
+
+* Initial conditions
+.ic v(vctrl)=0.9 v(vlf1)=0.9
+.ic v(xvco.s1)=1.8 v(xvco.s2)=0 v(xvco.s3)=1.8 v(xvco.s4)=0 v(xvco.s5)=1.8
+
+* ================================================================
+* Simulation
+* ================================================================
+.control
+  set filetype=ascii
+  set wr_vecnames
+
+  echo "=== PLL with Ideal PFD+CP: Fref=100MHz, N=4, Fvco_target=400MHz ==="
+  tran 0.1n 50000n uic
+
+  meas tran vc_100n  FIND v(vctrl) AT=100n
+  meas tran vc_500n  FIND v(vctrl) AT=500n
+  meas tran vc_1u    FIND v(vctrl) AT=1000n
+  meas tran vc_2u    FIND v(vctrl) AT=2000n
+  meas tran vc_5u    FIND v(vctrl) AT=5000n
+  meas tran vc_10u   FIND v(vctrl) AT=10000n
+  meas tran vc_15u   FIND v(vctrl) AT=15000n
+  meas tran vc_20u   FIND v(vctrl) AT=20000n
+  meas tran vc_25u   FIND v(vctrl) AT=25000n
+  meas tran vc_30u   FIND v(vctrl) AT=30000n
+  meas tran vc_35u   FIND v(vctrl) AT=35000n
+  meas tran vc_40u   FIND v(vctrl) AT=40000n
+  meas tran vc_45u   FIND v(vctrl) AT=45000n
+  meas tran vc_50u   FIND v(vctrl) AT=50000n
+
+  echo ""
+  echo "=== Vctrl vs Time ==="
+  echo "  100ns: $&vc_100n V"
+  echo "  500ns: $&vc_500n V"
+  echo "   1us:  $&vc_1u V"
+  echo "   2us:  $&vc_2u V"
+  echo "   5us:  $&vc_5u V"
+  echo "  10us:  $&vc_10u V"
+  echo "  15us:  $&vc_15u V"
+  echo "  20us:  $&vc_20u V"
+  echo "  25us:  $&vc_25u V"
+  echo "  30us:  $&vc_30u V"
+  echo "  35us:  $&vc_35u V"
+  echo "  40us:  $&vc_40u V"
+  echo "  45us:  $&vc_45u V"
+  echo "  50us:  $&vc_50u V"
+
+  meas tran tvco_a WHEN v(vco_out)=0.9 RISE=5000
+  meas tran tvco_b WHEN v(vco_out)=0.9 RISE=5001
+  let fvco = 1e-6 / (tvco_b - tvco_a)
+  echo ""
+  echo "VCO freq near end = $&fvco MHz (target 400)"
+
+  meas tran tdiv_a WHEN v(div_clk)=0.9 RISE=1200
+  meas tran tdiv_b WHEN v(div_clk)=0.9 RISE=1201
+  let fdiv = 1e-6 / (tdiv_b - tdiv_a)
+  echo "DIV freq near end = $&fdiv MHz (target 100)"
+
+  wrdata results/pll_ideal_pfdcp.tsv v(ref_clk) v(vco_out) v(div_clk) v(vctrl) v(up) v(dn)
+
+  echo ""
+  echo "=== Ideal PFD+CP PLL Simulation Complete ==="
+  quit
+.endc
+
+.end

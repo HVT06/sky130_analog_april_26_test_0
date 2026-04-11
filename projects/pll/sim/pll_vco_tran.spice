@@ -1,0 +1,144 @@
+* =============================================================
+* Ring VCO -- Transient Frequency Characterisation
+* Sky130A PDK  (open_pdks, tt corner)
+* =============================================================
+* 5-stage current-starved ring oscillator
+* Classic V-to-I converter: Vctrl → NMOS → PMOS diode → PMOS mirrors
+* =============================================================
+
+.title Ring VCO Transient Frequency Characterisation -- Sky130A
+
+.param sky130_fd_pr__nfet_01v8__toxe_slope=0
+.param sky130_fd_pr__nfet_01v8__vth0_slope=0
+.param sky130_fd_pr__nfet_01v8__voff_slope=0
+.param sky130_fd_pr__nfet_01v8__toxe_slope1=0
+.param sky130_fd_pr__nfet_01v8__vth0_slope1=0
+.param sky130_fd_pr__nfet_01v8__voff_slope1=0
+.param sky130_fd_pr__pfet_01v8__toxe_slope=0
+.param sky130_fd_pr__pfet_01v8__vth0_slope=0
+.param sky130_fd_pr__pfet_01v8__voff_slope=0
+.param sky130_fd_pr__pfet_01v8__nfactor_slope=0
+.param sky130_fd_pr__pfet_01v8__toxe_slope1=0
+.param sky130_fd_pr__pfet_01v8__vth0_slope1=0
+.param sky130_fd_pr__pfet_01v8__voff_slope1=0
+.param sky130_fd_pr__pfet_01v8__nfactor_slope1=0
+.param sky130_fd_pr__pfet_01v8__wlod_diff=0
+.param sky130_fd_pr__pfet_01v8__kvth0_diff=0
+.param sky130_fd_pr__pfet_01v8__lkvth0_diff=0
+.param sky130_fd_pr__pfet_01v8__wkvth0_diff=0
+.param sky130_fd_pr__pfet_01v8__ku0_diff=0
+.param sky130_fd_pr__pfet_01v8__lku0_diff=0
+.param sky130_fd_pr__pfet_01v8__wku0_diff=0
+.param sky130_fd_pr__pfet_01v8__kvsat_diff=0
+.param mc_mm_switch=0
+.param mc_pr_switch=0
+
+.include "/home/hvt06/Downloads/open_pdks/sky130/sky130A/libs.ref/sky130_fd_pr/spice/sky130_fd_pr__nfet_01v8__tt.pm3.spice"
+.include "/home/hvt06/Downloads/open_pdks/sky130/sky130A/libs.ref/sky130_fd_pr/spice/sky130_fd_pr__pfet_01v8__tt.corner.spice"
+
+.param VDD_VAL = 1.8
+Vdd vdd 0 {VDD_VAL}
+Vctrl vctrl 0 0.9
+
+* ================================================================
+* Bias Generation: V-to-I converter + PMOS current mirror
+* ================================================================
+*  VDD
+*   |
+*  [XMp_diode: PMOS diode, gate=drain=pbias, source=vdd]
+*   |
+*  pbias ──────────> (to PMOS sources in ring stages)
+*   |
+*  [XMn_ref: NMOS, gate=vctrl, drain=pbias, source=gnd]
+*   |
+*  GND
+*
+* Vctrl sets NMOS current → PMOS diode mirrors it to ring stages
+
+XMp_diode pbias pbias vdd vdd sky130_fd_pr__pfet_01v8 l=0.5u w=4.0u
+XMn_ref   pbias vctrl 0   0   sky130_fd_pr__nfet_01v8 l=0.5u w=2.0u
+
+* ================================================================
+* 5-Stage Current-Starved Ring Oscillator
+* ================================================================
+* Per stage: PMOS source (gate=pbias) → PMOS inv → NMOS inv → NMOS sink (gate=vctrl)
+*            current limited by BOTH PMOS source AND NMOS sink
+
+* --- Stage 1 ---
+XMp_src1 vdd   pbias  ps1  vdd sky130_fd_pr__pfet_01v8 l=0.5u w=4.0u
+XMp_inv1 ps1   s5     s1   vdd sky130_fd_pr__pfet_01v8 l=0.15u w=2.0u
+XMn_inv1 ns1   s5     s1   0   sky130_fd_pr__nfet_01v8 l=0.15u w=1.0u
+XMn_snk1 0     vctrl  ns1  0   sky130_fd_pr__nfet_01v8 l=0.5u w=2.0u
+
+* --- Stage 2 ---
+XMp_src2 vdd   pbias  ps2  vdd sky130_fd_pr__pfet_01v8 l=0.5u w=4.0u
+XMp_inv2 ps2   s1     s2   vdd sky130_fd_pr__pfet_01v8 l=0.15u w=2.0u
+XMn_inv2 ns2   s1     s2   0   sky130_fd_pr__nfet_01v8 l=0.15u w=1.0u
+XMn_snk2 0     vctrl  ns2  0   sky130_fd_pr__nfet_01v8 l=0.5u w=2.0u
+
+* --- Stage 3 ---
+XMp_src3 vdd   pbias  ps3  vdd sky130_fd_pr__pfet_01v8 l=0.5u w=4.0u
+XMp_inv3 ps3   s2     s3   vdd sky130_fd_pr__pfet_01v8 l=0.15u w=2.0u
+XMn_inv3 ns3   s2     s3   0   sky130_fd_pr__nfet_01v8 l=0.15u w=1.0u
+XMn_snk3 0     vctrl  ns3  0   sky130_fd_pr__nfet_01v8 l=0.5u w=2.0u
+
+* --- Stage 4 ---
+XMp_src4 vdd   pbias  ps4  vdd sky130_fd_pr__pfet_01v8 l=0.5u w=4.0u
+XMp_inv4 ps4   s3     s4   vdd sky130_fd_pr__pfet_01v8 l=0.15u w=2.0u
+XMn_inv4 ns4   s3     s4   0   sky130_fd_pr__nfet_01v8 l=0.15u w=1.0u
+XMn_snk4 0     vctrl  ns4  0   sky130_fd_pr__nfet_01v8 l=0.5u w=2.0u
+
+* --- Stage 5 (output) ---
+XMp_src5 vdd   pbias  ps5  vdd sky130_fd_pr__pfet_01v8 l=0.5u w=4.0u
+XMp_inv5 ps5   s4     s5   vdd sky130_fd_pr__pfet_01v8 l=0.15u w=2.0u
+XMn_inv5 ns5   s4     s5   0   sky130_fd_pr__nfet_01v8 l=0.15u w=1.0u
+XMn_snk5 0     vctrl  ns5  0   sky130_fd_pr__nfet_01v8 l=0.5u w=2.0u
+
+* Load caps
+Cload1 s1 0 10f
+Cload2 s2 0 10f
+Cload3 s3 0 10f
+Cload4 s4 0 10f
+Cload5 s5 0 10f
+
+.ic v(s1)=1.8 v(s2)=0 v(s3)=1.8 v(s4)=0 v(s5)=1.8
+
+* ================================================================
+* Simulation
+* ================================================================
+.control
+  set filetype=ascii
+  set wr_vecnames
+
+  tran 0.05n 200n uic
+
+  meas tran trise1 WHEN v(s5)=0.9 RISE=5
+  meas tran trise2 WHEN v(s5)=0.9 RISE=6
+  let period = trise2 - trise1
+  let freq_mhz = 1e-6 / period
+  echo "=== Nominal Vctrl=0.9V ==="
+  echo "Period = $&period s"
+  echo "Frequency = $&freq_mhz MHz"
+
+  wrdata results/pll_vco_tran_nominal.tsv v(s1) v(s2) v(s3) v(s4) v(s5)
+
+  echo ""
+  echo "=== VCO Frequency vs Vctrl ==="
+  echo "Vctrl(V)  Freq(MHz)"
+
+  foreach vval 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0 1.1 1.2 1.3 1.4 1.5 1.6
+    alter Vctrl $vval
+    tran 0.05n 200n uic
+    meas tran tr1 WHEN v(s5)=0.9 RISE=5
+    meas tran tr2 WHEN v(s5)=0.9 RISE=6
+    let per = tr2 - tr1
+    let fmhz = 1e-6 / per
+    echo "$vval  $&fmhz"
+  end
+
+  echo ""
+  echo "=== VCO Characterisation Complete ==="
+  quit
+.endc
+
+.end

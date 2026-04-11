@@ -1,0 +1,233 @@
+* =============================================================
+* PFD + Charge Pump -- Transient Functional Verification
+* Sky130A PDK  (open_pdks, tt corner)
+* =============================================================
+* Edge-triggered PFD using TSPC-style DFF + Charge Pump
+* Test: DIV lags REF by 1ns at 100MHz → Vctrl should increase
+* =============================================================
+
+.title PFD + Charge Pump Test -- Sky130A
+
+.param sky130_fd_pr__nfet_01v8__toxe_slope=0
+.param sky130_fd_pr__nfet_01v8__vth0_slope=0
+.param sky130_fd_pr__nfet_01v8__voff_slope=0
+.param sky130_fd_pr__nfet_01v8__toxe_slope1=0
+.param sky130_fd_pr__nfet_01v8__vth0_slope1=0
+.param sky130_fd_pr__nfet_01v8__voff_slope1=0
+.param sky130_fd_pr__pfet_01v8__toxe_slope=0
+.param sky130_fd_pr__pfet_01v8__vth0_slope=0
+.param sky130_fd_pr__pfet_01v8__voff_slope=0
+.param sky130_fd_pr__pfet_01v8__nfactor_slope=0
+.param sky130_fd_pr__pfet_01v8__toxe_slope1=0
+.param sky130_fd_pr__pfet_01v8__vth0_slope1=0
+.param sky130_fd_pr__pfet_01v8__voff_slope1=0
+.param sky130_fd_pr__pfet_01v8__nfactor_slope1=0
+.param sky130_fd_pr__pfet_01v8__wlod_diff=0
+.param sky130_fd_pr__pfet_01v8__kvth0_diff=0
+.param sky130_fd_pr__pfet_01v8__lkvth0_diff=0
+.param sky130_fd_pr__pfet_01v8__wkvth0_diff=0
+.param sky130_fd_pr__pfet_01v8__ku0_diff=0
+.param sky130_fd_pr__pfet_01v8__lku0_diff=0
+.param sky130_fd_pr__pfet_01v8__wku0_diff=0
+.param sky130_fd_pr__pfet_01v8__kvsat_diff=0
+.param mc_mm_switch=0
+.param mc_pr_switch=0
+
+.include "/home/hvt06/Downloads/open_pdks/sky130/sky130A/libs.ref/sky130_fd_pr/spice/sky130_fd_pr__nfet_01v8__tt.pm3.spice"
+.include "/home/hvt06/Downloads/open_pdks/sky130/sky130A/libs.ref/sky130_fd_pr/spice/sky130_fd_pr__pfet_01v8__tt.corner.spice"
+
+Vdd vdd 0 1.8
+
+* ================================================================
+* SUBCIRCUIT: Inverter
+* ================================================================
+.subckt inv in out vdd_l vss_l
+XMp vdd_l in out vdd_l sky130_fd_pr__pfet_01v8 l=0.15u w=1.0u
+XMn vss_l in out vss_l sky130_fd_pr__nfet_01v8 l=0.15u w=0.5u
+.ends inv
+
+* ================================================================
+* SUBCIRCUIT: NAND2
+* ================================================================
+.subckt nand2 a b out vdd_l vss_l
+XMp1 vdd_l a   out vdd_l sky130_fd_pr__pfet_01v8 l=0.15u w=1.0u
+XMp2 vdd_l b   out vdd_l sky130_fd_pr__pfet_01v8 l=0.15u w=1.0u
+XMn1 out   a   mid vss_l sky130_fd_pr__nfet_01v8 l=0.15u w=1.0u
+XMn2 mid   b   vss_l vss_l sky130_fd_pr__nfet_01v8 l=0.15u w=1.0u
+.ends nand2
+
+* ================================================================
+* SUBCIRCUIT: PFD DFF with asynchronous reset
+* ================================================================
+* Uses 4 NAND2 gates (Madhavan/Razavi/standard PFD topology)
+*
+* Topology (positive-edge triggered, D=VDD, async active-low reset):
+*
+*   NAND1: out1 = NAND(rst_n, out4)      -- controls set arm
+*   NAND2: out2 = NAND(out1, clk)         -- clk gates set
+*   NAND3: out3 = NAND(out2, out4)        -- cross-couple with out4
+*   NAND4: out4 = NAND(out3, clk_n)       -- clk_n gates reset arm
+*
+*   Q = out3
+*
+* Behavior (D=VDD always connected):
+*   rst_n=0: out1=1 (NAND with 0), out2=NAND(1,clk), out3 floats...
+*   Actually let me use a different proven topology.
+*
+* I'll use the standard 2-NAND PFD DFF that actually works:
+*   out_n = NAND(clk, q)          -- "S" arm
+*   q     = NAND(out_n, rst_n)    -- "R" arm with reset
+*
+* Trace for NAND-based SR:
+*   rst_n=0: q = NAND(out_n, 0) = 1 → out_n = NAND(clk, 1) = NAND(clk, 1) = clk_n
+*     But q=1 means the DFF thinks Q=1? No wait, we need Q=0 on reset.
+*     If q is the internal signal, we can have Q = NOT(q).
+*     rst_n=0: q=1, Q=NOT(q)=0. ✓
+*   rst_n=1, clk=0: out_n = NAND(0, q) = 1, q = NAND(1, 1) = 0 → Q=NOT(0)=1?
+*     That means Q=1 when clk=0, which is wrong (should stay reset).
+*
+* This is the same level-sensitive issue. Let me try yet another approach.
+*
+* DEFINITIVE SOLUTION: Use a behavioral edge detector + SR latch.
+* The edge detector creates a short pulse on CLK rising edge.
+* This pulse SETS the latch. Reset clears it.
+*
+* Edge detector: pulse = CLK AND (delayed NOT CLK)
+* Delay = 3 inverter delays ≈ 150ps
+*
+.subckt pfd_dff clk rst_n q vdd_l vss_l
+* Edge detector: generates short high pulse on CLK rising edge
+Xinv_d1 clk    d1  vdd_l vss_l inv
+Xinv_d2 d1     d2  vdd_l vss_l inv
+Xinv_d3 d2     d3  vdd_l vss_l inv
+* clk_delayed_n = d3 (clk delayed by 3 inversions, inverted)
+* pulse = clk AND NOT(clk_delayed) = clk AND d1... no
+* We want: pulse = clk AND clk_delayed_n
+* d1 = NOT(clk), d2 = clk_delayed(2), d3 = NOT(clk_delayed(3))
+* For rising edge pulse: clk goes 0→1, d3 is still 1 (since d3=NOT(delayed_clk))
+* pulse = NAND(clk, d3) inverted → AND(clk, d3)
+* When clk just rose: clk=1, d3 still=1 (was NOT(old_clk=0)=1) → AND=1
+* After delay: d3 = NOT(clk=1) = 0 → AND=0
+* Pulse width ≈ 3 × inverter delay
+Xnand_ed clk d3 pulse_n vdd_l vss_l nand2
+Xinv_ed pulse_n pulse vdd_l vss_l inv
+
+* SR latch: SET on pulse, RESET on rst_n low
+* q_int = NAND(pulse_n_sr, rst_n)
+* q_int_n = NAND(q_int, vdd_l)  -- not right...
+*
+* Simple: use set-dominant NAND SR
+*   sn = NAND(set, rn)    -- here set = pulse
+*   rn = NAND(sn, rst_n)
+*
+* Actually simpler: just use a NOR SR with the edge pulse.
+* S = pulse (short pulse on CLK rising edge)
+* R = NOT(rst_n) = rst
+* Q = NOR(R, Q_n)
+* Q_n = NOR(S, Q)
+*
+* When S=1 (pulse): Q_n = NOR(1, Q) = 0, Q = NOR(R, 0) = NOR(rst, 0)
+*   If rst=0: Q=1. ✓ SET
+* When R=1 (reset active): Q = NOR(1, Q_n) = 0. ✓ RESET
+* When S=0, R=0: latched. ✓
+*
+* The pulse is EDGE-TRIGGERED because it only fires for ~150ps on CLK rising edge.
+* Even if CLK stays high, the pulse returns to 0, so the latch doesn't re-trigger.
+
+* NOR2 built from transistors (inline, to avoid subcircuit overhead)
+* Q_n = NOR(pulse, Q)
+XMp_qn1 vdd_l pulse qn_mid vdd_l sky130_fd_pr__pfet_01v8 l=0.15u w=2.0u
+XMp_qn2 qn_mid q    q_n    vdd_l sky130_fd_pr__pfet_01v8 l=0.15u w=2.0u
+XMn_qn1 q_n   pulse vss_l  vss_l sky130_fd_pr__nfet_01v8 l=0.15u w=0.5u
+XMn_qn2 q_n   q     vss_l  vss_l sky130_fd_pr__nfet_01v8 l=0.15u w=0.5u
+
+* rst = NOT(rst_n)
+Xinv_rst rst_n rst vdd_l vss_l inv
+
+* Q = NOR(rst, Q_n)
+XMp_q1 vdd_l rst q_mid vdd_l sky130_fd_pr__pfet_01v8 l=0.15u w=2.0u
+XMp_q2 q_mid q_n q     vdd_l sky130_fd_pr__pfet_01v8 l=0.15u w=2.0u
+XMn_q1 q     rst vss_l vss_l sky130_fd_pr__nfet_01v8 l=0.15u w=0.5u
+XMn_q2 q     q_n vss_l vss_l sky130_fd_pr__nfet_01v8 l=0.15u w=0.5u
+.ends pfd_dff
+
+* ================================================================
+* SUBCIRCUIT: Phase-Frequency Detector
+* ================================================================
+.subckt pfd ref_clk div_clk up dn vdd_l vss_l
+* DFFs: rising edge of ref sets UP, rising edge of div sets DN
+Xdff_up ref_clk rst_n up vdd_l vss_l pfd_dff
+Xdff_dn div_clk rst_n dn vdd_l vss_l pfd_dff
+
+* Reset: when both UP AND DN are high → active-low reset after delay
+Xnand_rst up dn and_n vdd_l vss_l nand2
+Xinv_and and_n and_out vdd_l vss_l inv
+* Delay chain for dead-zone elimination
+Xinv_d1 and_out d1  vdd_l vss_l inv
+Xinv_d2 d1      d2  vdd_l vss_l inv
+Xinv_d3 d2      d3  vdd_l vss_l inv
+Xinv_d4 d3      d4  vdd_l vss_l inv
+* rst_n goes LOW when and_out is HIGH (both UP,DN high)
+Xinv_rst d4 rst_n vdd_l vss_l inv
+.ends pfd
+
+* ================================================================
+* SUBCIRCUIT: Charge Pump
+* ================================================================
+.subckt charge_pump up dn vout vdd_l vss_l
+Xinv_up up up_b vdd_l vss_l inv
+
+* PMOS mirror: Iref sinks 10µA from pbias node to GND
+XMp_diode pbias pbias vdd_l vdd_l sky130_fd_pr__pfet_01v8 l=1.0u w=4.0u
+XMp_mir   ip_src pbias vdd_l vdd_l sky130_fd_pr__pfet_01v8 l=1.0u w=4.0u
+XMp_sw    vout   up_b  ip_src vdd_l sky130_fd_pr__pfet_01v8 l=0.15u w=2.0u
+Iref_p pbias vss_l 10u
+
+* NMOS mirror: Iref sources 10µA from VDD into nbias node
+XMn_diode nbias nbias vss_l vss_l sky130_fd_pr__nfet_01v8 l=1.0u w=2.0u
+XMn_mir   in_snk nbias vss_l vss_l sky130_fd_pr__nfet_01v8 l=1.0u w=2.0u
+XMn_sw    vout   dn   in_snk vss_l sky130_fd_pr__nfet_01v8 l=0.15u w=1.0u
+Iref_n vdd_l nbias 10u
+.ends charge_pump
+
+* ================================================================
+* Test Bench: Phase Lag (DIV lags REF by 1ns)
+* ================================================================
+Xpfd ref_clk div_clk up dn vdd 0 pfd
+Xcp up dn vctrl vdd 0 charge_pump
+Clf vctrl 0 10p
+.ic v(vctrl)=0.9
+
+* Reference clock: 100 MHz
+Vref ref_clk 0 PULSE(0 1.8 0 0.1n 0.1n 4.9n 10n)
+* DIV clock: 100 MHz, 1ns lag
+Vdiv div_clk 0 PULSE(0 1.8 1n 0.1n 0.1n 4.9n 10n)
+
+.control
+  set filetype=ascii
+  set wr_vecnames
+
+  echo "=== PFD+CP: DIV lags REF by 1ns (100MHz) ==="
+  echo "Expected: UP wider than DN → Vctrl increases"
+  tran 0.01n 200n uic
+
+  meas tran vctrl_start FIND v(vctrl) AT=5n
+  meas tran vctrl_end   FIND v(vctrl) AT=200n
+  let delta_v = vctrl_end - vctrl_start
+  echo ""
+  echo "Vctrl at 5ns  = $&vctrl_start V"
+  echo "Vctrl at 200ns = $&vctrl_end V"
+  echo "Delta Vctrl = $&delta_v V"
+
+  meas tran up_max MAX v(up) FROM=0n TO=200n
+  meas tran dn_max MAX v(dn) FROM=0n TO=200n
+  echo "UP max = $&up_max V, DN max = $&dn_max V"
+
+  wrdata results/pll_pfd_cp_lag.tsv v(ref_clk) v(div_clk) v(up) v(dn) v(vctrl)
+
+  echo ""
+  echo "=== PFD+CP Test Complete ==="
+  quit
+.endc
+
+.end

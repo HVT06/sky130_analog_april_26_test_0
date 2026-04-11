@@ -1,11 +1,11 @@
 # Tiny Tapeout project information
 project:
-  title:        ""      # Project title
+  title:        "Ring-Oscillator PLL (sky130A)"
   author:       ""      # Your name
   discord:      ""      # Your discord username, for communication and automatically assigning you a Tapeout role (optional)
-  description:  ""      # One line description of what your project does
+  description:  "50-500 MHz tunable PLL with current-starved ring VCO, transistor-level PFD, on-chip MOSCAP loop filter"
   language:     "Analog" # other examples include Verilog, Amaranth, VHDL, etc
-  clock_hz:     0       # Clock frequency in Hz (or 0 if not applicable)
+  clock_hz:     100000000  # Reference clock 100 MHz
 
   # How many tiles your design occupies? A single tile is about 167x108 uM.
   tiles: "1x2"          # Valid values for analog projects: 1x2, 2x2
@@ -15,7 +15,7 @@ project:
   uses_3v3: false       # Set to true if your project uses 3.3V (VAPWR) in addition to 1.8V (VDPWR)
 
   # Your top module name must start with "tt_um_". Make it unique by including your github username:
-  top_module:  "tt_um_example"
+  top_module:  "tt_um_pll_sky130"
 
   # List your project's source files here. Source files must be in ./src and you must list each source file separately, one per line:
   source_files:        
@@ -25,17 +25,17 @@ project:
 # This section is for the datasheet/website. Use descriptive names (e.g., RX, TX, MOSI, SCL, SEG_A, etc.).
 pinout:
   # Inputs
-  ui[0]: ""
-  ui[1]: ""
-  ui[2]: ""
-  ui[3]: ""
-  ui[4]: ""
-  ui[5]: ""
-  ui[6]: ""
-  ui[7]: ""
+  ui[0]: "div_N[0]"
+  ui[1]: "div_N[1]"
+  ui[2]: "div_N[2]"
+  ui[3]: "div_N[3]"
+  ui[4]: "div_N[4]"
+  ui[5]: "div_N[5]"
+  ui[6]: "div_N[6]"
+  ui[7]: "div_N[7]"
 
   # Outputs
-  uo[0]: ""
+  uo[0]: "lock_detect"
   uo[1]: ""
   uo[2]: ""
   uo[3]: ""
@@ -45,18 +45,18 @@ pinout:
   uo[7]: ""
 
   # Bidirectional pins
-  uio[0]: ""
-  uio[1]: ""
-  uio[2]: ""
-  uio[3]: ""
-  uio[4]: ""
-  uio[5]: ""
-  uio[6]: ""
-  uio[7]: ""
+  uio[0]: "div_M[0]"
+  uio[1]: "div_M[1]"
+  uio[2]: "div_M[2]"
+  uio[3]: "coarse_band[0]"
+  uio[4]: "coarse_band[1]"
+  uio[5]: "coarse_band[2]"
+  uio[6]: "coarse_band[3]"
+  uio[7]: "pll_enable"
 
   # Analog pins - make sure to also set "analog_pins" above, else the pins won't be connected
-  ua[0]: ""
-  ua[1]: ""
+  ua[0]: "ref_clk_input"
+  ua[1]: "div_vco_output"
   ua[2]: ""
   ua[3]: ""
   ua[4]: ""

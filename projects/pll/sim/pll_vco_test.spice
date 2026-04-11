@@ -1,0 +1,74 @@
+* Simple 5-stage ring oscillator test - no current starving
+
+.title Ring VCO Test -- Sky130A
+
+.param sky130_fd_pr__nfet_01v8__toxe_slope=0
+.param sky130_fd_pr__nfet_01v8__vth0_slope=0
+.param sky130_fd_pr__nfet_01v8__voff_slope=0
+.param sky130_fd_pr__nfet_01v8__toxe_slope1=0
+.param sky130_fd_pr__nfet_01v8__vth0_slope1=0
+.param sky130_fd_pr__nfet_01v8__voff_slope1=0
+.param sky130_fd_pr__pfet_01v8__toxe_slope=0
+.param sky130_fd_pr__pfet_01v8__vth0_slope=0
+.param sky130_fd_pr__pfet_01v8__voff_slope=0
+.param sky130_fd_pr__pfet_01v8__nfactor_slope=0
+.param sky130_fd_pr__pfet_01v8__toxe_slope1=0
+.param sky130_fd_pr__pfet_01v8__vth0_slope1=0
+.param sky130_fd_pr__pfet_01v8__voff_slope1=0
+.param sky130_fd_pr__pfet_01v8__nfactor_slope1=0
+.param sky130_fd_pr__pfet_01v8__wlod_diff=0
+.param sky130_fd_pr__pfet_01v8__kvth0_diff=0
+.param sky130_fd_pr__pfet_01v8__lkvth0_diff=0
+.param sky130_fd_pr__pfet_01v8__wkvth0_diff=0
+.param sky130_fd_pr__pfet_01v8__ku0_diff=0
+.param sky130_fd_pr__pfet_01v8__lku0_diff=0
+.param sky130_fd_pr__pfet_01v8__wku0_diff=0
+.param sky130_fd_pr__pfet_01v8__kvsat_diff=0
+.param mc_mm_switch=0
+.param mc_pr_switch=0
+
+.include "/home/hvt06/Downloads/open_pdks/sky130/sky130A/libs.ref/sky130_fd_pr/spice/sky130_fd_pr__nfet_01v8__tt.pm3.spice"
+.include "/home/hvt06/Downloads/open_pdks/sky130/sky130A/libs.ref/sky130_fd_pr/spice/sky130_fd_pr__pfet_01v8__tt.corner.spice"
+
+Vdd vdd 0 1.8
+
+* Stage 1: simple CMOS inverter
+XMp1 vdd s5 s1 vdd sky130_fd_pr__pfet_01v8 l=0.15u w=2.0u
+XMn1 0   s5 s1 0   sky130_fd_pr__nfet_01v8 l=0.15u w=1.0u
+
+* Stage 2
+XMp2 vdd s1 s2 vdd sky130_fd_pr__pfet_01v8 l=0.15u w=2.0u
+XMn2 0   s1 s2 0   sky130_fd_pr__nfet_01v8 l=0.15u w=1.0u
+
+* Stage 3
+XMp3 vdd s2 s3 vdd sky130_fd_pr__pfet_01v8 l=0.15u w=2.0u
+XMn3 0   s2 s3 0   sky130_fd_pr__nfet_01v8 l=0.15u w=1.0u
+
+* Stage 4
+XMp4 vdd s3 s4 vdd sky130_fd_pr__pfet_01v8 l=0.15u w=2.0u
+XMn4 0   s3 s4 0   sky130_fd_pr__nfet_01v8 l=0.15u w=1.0u
+
+* Stage 5
+XMp5 vdd s4 s5 vdd sky130_fd_pr__pfet_01v8 l=0.15u w=2.0u
+XMn5 0   s4 s5 0   sky130_fd_pr__nfet_01v8 l=0.15u w=1.0u
+
+Cload1 s1 0 10f
+Cload2 s2 0 10f
+Cload3 s3 0 10f
+Cload4 s4 0 10f
+Cload5 s5 0 10f
+
+.ic v(s1)=1.8 v(s2)=0 v(s3)=1.8 v(s4)=0 v(s5)=1.8
+
+.control
+  tran 0.01n 50n uic
+  meas tran trise1 WHEN v(s5)=0.9 RISE=3
+  meas tran trise2 WHEN v(s5)=0.9 RISE=4
+  let period = trise2 - trise1
+  let freq_mhz = 1e-6 / period
+  echo "Period = $&period"
+  echo "Freq = $&freq_mhz MHz"
+  quit
+.endc
+
+.end

@@ -1,0 +1,97 @@
+* =============================================================
+* Ring VCO -- DC Operating Point & Bias Analysis
+* Sky130A PDK  (open_pdks, tt corner)
+* =============================================================
+* Characterise the current-starved inverter bias conditions
+* Sweep Vctrl to observe bias current vs control voltage
+* =============================================================
+
+.title Ring VCO DC Bias Analysis -- Sky130A
+
+* --- MC / slope parameters (set to 0 for nominal) ---
+.param sky130_fd_pr__nfet_01v8__toxe_slope        = 0
+.param sky130_fd_pr__nfet_01v8__vth0_slope        = 0
+.param sky130_fd_pr__nfet_01v8__voff_slope        = 0
+.param sky130_fd_pr__nfet_01v8__toxe_slope1       = 0
+.param sky130_fd_pr__nfet_01v8__vth0_slope1       = 0
+.param sky130_fd_pr__nfet_01v8__voff_slope1       = 0
+.param sky130_fd_pr__pfet_01v8__toxe_slope        = 0
+.param sky130_fd_pr__pfet_01v8__vth0_slope        = 0
+.param sky130_fd_pr__pfet_01v8__voff_slope        = 0
+.param sky130_fd_pr__pfet_01v8__nfactor_slope     = 0
+.param sky130_fd_pr__pfet_01v8__toxe_slope1       = 0
+.param sky130_fd_pr__pfet_01v8__vth0_slope1       = 0
+.param sky130_fd_pr__pfet_01v8__voff_slope1       = 0
+.param sky130_fd_pr__pfet_01v8__nfactor_slope1    = 0
+.param sky130_fd_pr__pfet_01v8__wlod_diff         = 0
+.param sky130_fd_pr__pfet_01v8__kvth0_diff        = 0
+.param sky130_fd_pr__pfet_01v8__lkvth0_diff       = 0
+.param sky130_fd_pr__pfet_01v8__wkvth0_diff       = 0
+.param sky130_fd_pr__pfet_01v8__ku0_diff          = 0
+.param sky130_fd_pr__pfet_01v8__lku0_diff         = 0
+.param sky130_fd_pr__pfet_01v8__wku0_diff         = 0
+.param sky130_fd_pr__pfet_01v8__kvsat_diff        = 0
+.param mc_mm_switch = 0
+.param mc_pr_switch = 0
+
+.include "/home/hvt06/Downloads/open_pdks/sky130/sky130A/libs.ref/sky130_fd_pr/spice/sky130_fd_pr__nfet_01v8__tt.pm3.spice"
+.include "/home/hvt06/Downloads/open_pdks/sky130/sky130A/libs.ref/sky130_fd_pr/spice/sky130_fd_pr__pfet_01v8__tt.corner.spice"
+
+* ---- Supply ----
+Vdd  vdd 0 1.8
+Vctrl vctrl 0 0.9
+
+* ========================================
+* Single Current-Starved Inverter Stage
+* ========================================
+* PMOS bias mirror (master)
+XMpbias_m vdd  nbias_p vdd vdd sky130_fd_pr__pfet_01v8 l=1.0u w=4.0u
+XMnbias_m nbias_n nbias_n 0 0 sky130_fd_pr__nfet_01v8 l=1.0u w=2.0u
+
+* Reference current: 50uA nominal
+Iref nbias_p nbias_n 50u
+
+* PMOS bias mirror (slave, per stage)
+XMpbias vdd nbias_p pstar vdd sky130_fd_pr__pfet_01v8 l=1.0u w=4.0u
+
+* PMOS inverter drive
+XMpdrive pstar vin vout vdd sky130_fd_pr__pfet_01v8 l=0.15u w=2.0u
+
+* NMOS inverter drive
+XMndrive nstar vin vout 0 sky130_fd_pr__nfet_01v8 l=0.15u w=1.0u
+
+* NMOS bias mirror (slave, per stage)
+XMnbias 0 nbias_n nstar 0 sky130_fd_pr__nfet_01v8 l=1.0u w=2.0u
+
+* Test input
+Vin vin 0 0.9
+
+* Load cap (approximate inverter gate + varactor)
+Cload vout 0 80f
+
+.control
+  * DC sweep: vary control current via Iref
+  * (sweep Vctrl as proxy through mirror)
+  op
+  print all
+  
+  * Sweep input voltage to get DC transfer curve
+  dc Vin 0 1.8 0.01
+  
+  set filetype=ascii
+  wrdata results/pll_vco_dc_transfer.tsv v(vout)
+  
+  * Now sweep Iref to see how bias current changes
+  alterparam Iref = 10u
+  reset
+  op
+  print @XMpbias[id] @XMnbias[id]
+  
+  alterparam Iref = 100u
+  reset
+  op
+  print @XMpbias[id] @XMnbias[id]
+  
+.endc
+
+.end

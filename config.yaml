@@ -1,0 +1,17 @@
+# Multi-project configuration for Tiny Tapeout sky130A
+# Select which design is built as the final GDS
+
+active_project: pll
+
+projects:
+  tia:
+    top_module: tt_um_tia_sky130
+    description: "Inverter-based transimpedance amplifier with poly feedback resistor"
+    tiles: "1x2"
+    analog_pins: 2
+    
+  pll:
+    top_module: tt_um_pll_sky130
+    description: "Ring-oscillator PLL, 50-500 MHz tunable, current-starved VCO"
+    tiles: "1x2"
+    analog_pins: 2

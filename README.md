@@ -1,36 +1,67 @@
 ![](../../workflows/gds/badge.svg) ![](../../workflows/docs/badge.svg)
 
-# Tiny Tapeout Analog Project Template
+# Analog IC Projects — Tiny Tapeout sky130A
 
-- [Read the documentation for project](docs/info.md)
+Multi-project repository for analog IC designs targeting the Tiny Tapeout sky130A shuttle.
+Each project lives under `projects/` and a top-level `config.yaml` selects which design
+is built as the final GDS.
 
-## What is Tiny Tapeout?
+## Active Project: Ring-Oscillator PLL
 
-Tiny Tapeout is an educational project that aims to make it easier and cheaper than ever to get your digital designs manufactured on a real chip.
+A fully transistor-level phase-locked loop (PLL) with:
+- **5-stage current-starved ring VCO** (50–500 MHz tunable)
+- **Transistor-level PFD** (resettable TG DFFs + NAND reset — no XSPICE)
+- **On-chip MOSCAP loop filter** (C1=10pF, C2=1pF, R=4.7kΩ)
+- **10 µA matched charge pump** with current mirrors
+- **÷4 feedback divider** (TG master-slave toggle FFs)
 
-To learn more and get started, visit https://tinytapeout.com.
+### Specifications
 
-## Analog projects
+| Parameter | Value |
+|-----------|-------|
+| Process | SkyWater sky130A (130 nm) |
+| Supply | 1.8 V |
+| Tile | 1×2 (~161 × 226 µm) |
+| Reference clock | 100 MHz |
+| VCO range | 50 – 500 MHz |
+| Lock frequency | 400 MHz (÷4 → 100 MHz) |
+| Loop BW | ~7 MHz, ζ ≈ 0.9 |
+| Analog pins | ua[0] = ref clock in, ua[1] = divided output |
 
-For specifications and instructions, see the [analog specs page](https://tinytapeout.com/specs/analog/).
+### Layout
 
-## Enable GitHub actions to build the results page
+Hybrid standard-cell + custom analog layout generated with Python/gdstk:
+- Digital blocks use `sky130_fd_sc_hd` standard cells (DRC-clean by construction)
+- Analog blocks use custom transistor cells derived from PDK geometry
+- MOSCAPs use NMOS gate capacitance (~8.3 fF/µm²)
 
-- [Enabling GitHub Pages](https://tinytapeout.com/faq/#my-github-action-is-failing-on-the-pages-part)
+## Project Structure
 
-## Resources
+```
+config.yaml              # Select active project (pll or tia)
+build.py                 # Build script: generates GDS + updates info.yaml
+projects/
+  pll/                   # Ring-oscillator PLL
+    generate_layout.py   # Layout generator
+    sim/                 # SPICE simulations
+    docs/                # Design documentation
+    lvs/                 # LVS netlist
+    gds_out/             # Generated GDS
+  tia/                   # TIA (on main branch)
+gds/                     # Final GDS for TT CI
+info.yaml                # Tiny Tapeout project metadata
+```
 
-- [FAQ](https://tinytapeout.com/faq/)
-- [Digital design lessons](https://tinytapeout.com/digital_design/)
-- [Learn how semiconductors work](https://tinytapeout.com/siliwiz/)
-- [Join the community](https://tinytapeout.com/discord)
+## Building
 
-## What next?
+```bash
+# Select project in config.yaml, then:
+python3 build.py
 
-- [Submit your design to the next shuttle](https://app.tinytapeout.com/).
-- Edit [this README](README.md) and explain your design, how it works, and how to test it.
-- Share your project on your social network of choice:
-  - LinkedIn [#tinytapeout](https://www.linkedin.com/search/results/content/?keywords=%23tinytapeout) [@TinyTapeout](https://www.linkedin.com/company/100708654/)
-  - Mastodon [#tinytapeout](https://chaos.social/tags/tinytapeout) [@matthewvenn](https://chaos.social/@matthewvenn)
-  - X (formerly Twitter) [#tinytapeout](https://twitter.com/hashtag/tinytapeout) [@tinytapeout](https://twitter.com/tinytapeout)
-  - Bluesky [@tinytapeout.com](https://bsky.app/profile/tinytapeout.com)
+# Or run the PLL layout generator directly:
+python3 projects/pll/generate_layout.py
+```
+
+## Other Projects
+
+- **TIA** (main branch): Inverter-based transimpedance amplifier, Zt ≈ 3776 Ω, BW ≈ 1.26 GHz

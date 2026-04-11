@@ -9,3 +9,16 @@ test/sim_build
 test/__pycache__/
 test/results.xml
 test/gate_level_netlist.v
+
+# Simulation outputs
+*.raw
+*.out
+bsim4v5.out
+*.ext
+projects/*/sim/results/*.raw
+
+# Simulation result data (large TSV/raw files)
+projects/*/sim/results/*.tsv
+
+# Layout temp
+projects/*/gds_out/
