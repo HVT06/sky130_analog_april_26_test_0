@@ -1,0 +1,101 @@
+* =============================================================
+* TIA Post-Layout: All Corners + Temperature Sweep
+* =============================================================
+* Parameterised by CORNER (tt/ff/ss/sf/fs) and TEMP.
+* Invoked by run_corners.py — do not run manually.
+*
+* Topology: Magic-extracted 12-FET inv6_extracted + ideal Rfb=5kΩ
+* NOTE: Rfb is IDEAL here; the poly resistor is confirmed present
+*        in the GDS (both terminals connected as of fix commit).
+*        Magic cannot extract the poly resistor without lvsrules;
+*        it treats poly as a conductor, showing ua[0]//ua[1] as
+*        same net — expected behaviour, not a layout error.
+* =============================================================
+
+.title TIA Corner Analysis - CORNER=@@CORNER@@ TEMP=@@TEMP@@C
+
+* ---- PDK model files (parameterised) ----
+.include "@@NFET_MODEL@@"
+.include "@@PFET_MODEL@@"
+
+* ---- Slope params (disabled for all corners) ----
+.param mc_mm_switch = 0
+.param mc_pr_switch = 0
+.param MC_MM_SWITCH = 0
+.param MC_PR_SWITCH = 0
+.param sky130_fd_pr__nfet_01v8__toxe_slope     = 0
+.param sky130_fd_pr__nfet_01v8__vth0_slope     = 0
+.param sky130_fd_pr__nfet_01v8__voff_slope     = 0
+.param sky130_fd_pr__nfet_01v8__nfactor_slope  = 0
+.param sky130_fd_pr__nfet_01v8__toxe_slope1    = 0
+.param sky130_fd_pr__nfet_01v8__vth0_slope1    = 0
+.param sky130_fd_pr__nfet_01v8__voff_slope1    = 0
+.param sky130_fd_pr__nfet_01v8__nfactor_slope1 = 0
+.param sky130_fd_pr__nfet_01v8__wlod_diff      = 0
+.param sky130_fd_pr__nfet_01v8__kvth0_diff     = 0
+.param sky130_fd_pr__nfet_01v8__lkvth0_diff    = 0
+.param sky130_fd_pr__nfet_01v8__wkvth0_diff    = 0
+.param sky130_fd_pr__nfet_01v8__ku0_diff       = 0
+.param sky130_fd_pr__nfet_01v8__lku0_diff      = 0
+.param sky130_fd_pr__nfet_01v8__wku0_diff      = 0
+.param sky130_fd_pr__nfet_01v8__kvsat_diff     = 0
+.param sky130_fd_pr__pfet_01v8_hvt__toxe_slope     = 0
+.param sky130_fd_pr__pfet_01v8_hvt__vth0_slope     = 0
+.param sky130_fd_pr__pfet_01v8_hvt__voff_slope     = 0
+.param sky130_fd_pr__pfet_01v8_hvt__nfactor_slope  = 0
+.param sky130_fd_pr__pfet_01v8_hvt__toxe_slope1    = 0
+.param sky130_fd_pr__pfet_01v8_hvt__vth0_slope1    = 0
+.param sky130_fd_pr__pfet_01v8_hvt__voff_slope1    = 0
+.param sky130_fd_pr__pfet_01v8_hvt__nfactor_slope1 = 0
+.param sky130_fd_pr__pfet_01v8_hvt__wlod_diff      = 0
+.param sky130_fd_pr__pfet_01v8_hvt__kvth0_diff     = 0
+.param sky130_fd_pr__pfet_01v8_hvt__lkvth0_diff    = 0
+.param sky130_fd_pr__pfet_01v8_hvt__wkvth0_diff    = 0
+.param sky130_fd_pr__pfet_01v8_hvt__ku0_diff       = 0
+.param sky130_fd_pr__pfet_01v8_hvt__lku0_diff      = 0
+.param sky130_fd_pr__pfet_01v8_hvt__wku0_diff      = 0
+.param sky130_fd_pr__pfet_01v8_hvt__kvsat_diff     = 0
+
+* ---- Extracted inverter subcircuit (6P+6N from Magic) ----
+.subckt inv6_extracted gate drain vdd vss
+X0  drain gate vdd  vdd  sky130_fd_pr__pfet_01v8_hvt ad=0.135e-12 pd=1.27e-6 as=0.135e-12 ps=1.27e-6 w=1e-6 l=1.5e-7
+X1  drain gate vss  vss  sky130_fd_pr__nfet_01v8     ad=0.08775e-12 pd=0.92e-6 as=0.247e-12 ps=2.06e-6 w=0.65e-6 l=1.5e-7
+X2  vdd   gate drain vdd  sky130_fd_pr__pfet_01v8_hvt ad=0.135e-12 pd=1.27e-6 as=0.135e-12 ps=1.27e-6 w=1e-6 l=1.5e-7
+X3  drain gate vss  vss  sky130_fd_pr__nfet_01v8     ad=0.08775e-12 pd=0.92e-6 as=0.08775e-12 ps=0.92e-6 w=0.65e-6 l=1.5e-7
+X4  vdd   gate drain vdd  sky130_fd_pr__pfet_01v8_hvt ad=0.135e-12 pd=1.27e-6 as=0.135e-12 ps=1.27e-6 w=1e-6 l=1.5e-7
+X5  vdd   gate drain vdd  sky130_fd_pr__pfet_01v8_hvt ad=0.27e-12  pd=2.54e-6 as=0.135e-12 ps=1.27e-6 w=1e-6 l=1.5e-7
+X6  drain gate vss  vss  sky130_fd_pr__nfet_01v8     ad=0.08775e-12 pd=0.92e-6 as=0.08775e-12 ps=0.92e-6 w=0.65e-6 l=1.5e-7
+X7  drain gate vdd  vdd  sky130_fd_pr__pfet_01v8_hvt ad=0.135e-12 pd=1.27e-6 as=0.43e-12  ps=2.86e-6 w=1e-6 l=1.5e-7
+X8  vss   gate drain vss  sky130_fd_pr__nfet_01v8     ad=0.08775e-12 pd=0.92e-6 as=0.08775e-12 ps=0.92e-6 w=0.65e-6 l=1.5e-7
+X9  drain gate vdd  vdd  sky130_fd_pr__pfet_01v8_hvt ad=0.135e-12 pd=1.27e-6 as=0.135e-12 ps=1.27e-6 w=1e-6 l=1.5e-7
+X10 vss   gate drain vss  sky130_fd_pr__nfet_01v8     ad=0.08775e-12 pd=0.92e-6 as=0.08775e-12 ps=0.92e-6 w=0.65e-6 l=1.5e-7
+X11 vss   gate drain vss  sky130_fd_pr__nfet_01v8     ad=0.1755e-12 pd=1.84e-6 as=0.08775e-12 ps=0.92e-6 w=0.65e-6 l=1.5e-7
+.ends inv6_extracted
+
+* ---- Top-level circuit ----
+Vdd vdd 0 1.8
+Xinv vin vout vdd 0 inv6_extracted
+Rfb  vout vin 5000
+Iin  0 vin DC 0 AC 1
+Cpd  vin 0 100f
+
+* ---- Analysis ----
+.control
+  set noaskquit
+  set temp = @@TEMP@@
+  op
+  echo "=== DC OP: CORNER=@@CORNER@@ TEMP=@@TEMP@@C ==="
+  print v(vin) v(vout)
+
+  ac dec 50 1MEG 100G
+  let zt_mag = mag(v(vout))
+  let zt_db  = 20*log10(zt_mag)
+  let zt_ph  = 180/pi*phase(v(vout))
+  echo "=== AC: Zt(1MHz) ==="
+  print zt_db[0]
+
+  write sim/results/corner_@@CORNER@@_@@TEMP@@.raw
+  quit
+.endc
+
+.end

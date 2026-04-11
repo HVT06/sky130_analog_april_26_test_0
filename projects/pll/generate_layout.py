@@ -40,6 +40,7 @@ LY = {
     'psdm':     (94, 20),
     'npc':      (95, 20),
     'prbndry':  (235, 4),
+    'areaid_ce': (115, 44),  # core area marker (needed for KLayout DRC)
 }
 
 # ===========================================================================
@@ -229,19 +230,27 @@ def build_nfet(lib, name, w, l, nf=1):
         R(cell, dm_x - 0.085, sm_y - 0.085, dm_x + 0.085, sm_y + 0.085, 'mcon')
         R(cell, dm_x - 0.175, sm_y - 0.175, dm_x + 0.175, sm_y + 0.175, 'met1')
 
-        # Poly contact above diffusion
-        pc_x = snap(poly_x0 + (gate_w - LICON_SZ) / 2)
-        pc_y = snap(wf + poly_ext + 0.120)
-        if gate_w >= LICON_SZ:
-            R(cell, poly_x0, wf + poly_ext, poly_x1, pc_y + LICON_SZ + 0.100, 'poly')
-            R(cell, pc_x, pc_y, pc_x + LICON_SZ, pc_y + LICON_SZ, 'licon')
-            R(cell, poly_x0 - NPC_EXT, pc_y - 0.050,
-                  poly_x1 + NPC_EXT, pc_y + LICON_SZ + 0.050, 'npc')
-            gx = snap(pc_x + LICON_SZ / 2)
-            gy = snap(pc_y + LICON_SZ / 2)
-            R(cell, gx - 0.175, gy - 0.175, gx + 0.175, gy + 0.175, 'li1')
-            R(cell, gx - 0.085, gy - 0.085, gx + 0.085, gy + 0.085, 'mcon')
-            R(cell, gx - 0.175, gy - 0.175, gx + 0.175, gy + 0.175, 'met1')
+        # Gate contact — wider poly stub so licon fits even for L=150nm
+        # npc.1 requires NPC width >= 0.270um; licon.6 requires npc encloses licon by 0.045um
+        # Use stub_w = max(gate_w, LICON_SZ+0.100) for minimum 0.100um enc on each side
+        stub_w  = max(gate_w, LICON_SZ + 0.100)   # >= 0.270um
+        stub_x0 = snap(poly_x0 - (stub_w - gate_w) / 2)
+        stub_x1 = snap(poly_x1 + (stub_w - gate_w) / 2)
+        pc_y    = snap(wf + poly_ext + 0.150)
+        # wider poly stub above diffusion (overlaps poly_ext by 0.050 to ensure merge)
+        R(cell, stub_x0, snap(wf + poly_ext - 0.050),
+              stub_x1, snap(pc_y + LICON_SZ + 0.150), 'poly')
+        pc_x = snap(stub_x0 + (stub_w - LICON_SZ) / 2)
+        R(cell, pc_x, pc_y, pc_x + LICON_SZ, pc_y + LICON_SZ, 'licon')
+        # NPC with 0.075um enclosure (> 0.045 required by licon.6; NPC min dim >= 0.320 > 0.270)
+        npc_enc = 0.075
+        R(cell, pc_x - npc_enc, pc_y - npc_enc,
+              pc_x + LICON_SZ + npc_enc, pc_y + LICON_SZ + npc_enc, 'npc')
+        gx = snap(pc_x + LICON_SZ / 2)
+        gy = snap(pc_y + LICON_SZ / 2)
+        R(cell, gx - 0.175, gy - 0.175, gx + 0.175, gy + 0.175, 'li1')
+        R(cell, gx - 0.085, gy - 0.085, gx + 0.085, gy + 0.085, 'mcon')
+        R(cell, gx - 0.175, gy - 0.175, gx + 0.175, gy + 0.175, 'met1')
 
     return cell
 
@@ -302,18 +311,23 @@ def build_pfet(lib, name, w, l, nf=1):
         R(cell, dm_x - 0.085, sm_y - 0.085, dm_x + 0.085, sm_y + 0.085, 'mcon')
         R(cell, dm_x - 0.175, sm_y - 0.175, dm_x + 0.175, sm_y + 0.175, 'met1')
 
-        pc_x = snap(poly_x0 + (gate_w - LICON_SZ) / 2)
-        pc_y = snap(wf + poly_ext + 0.120)
-        if gate_w >= LICON_SZ:
-            R(cell, poly_x0, wf + poly_ext, poly_x1, pc_y + LICON_SZ + 0.100, 'poly')
-            R(cell, pc_x, pc_y, pc_x + LICON_SZ, pc_y + LICON_SZ, 'licon')
-            R(cell, poly_x0 - NPC_EXT, pc_y - 0.050,
-                  poly_x1 + NPC_EXT, pc_y + LICON_SZ + 0.050, 'npc')
-            gx = snap(pc_x + LICON_SZ / 2)
-            gy = snap(pc_y + LICON_SZ / 2)
-            R(cell, gx - 0.175, gy - 0.175, gx + 0.175, gy + 0.175, 'li1')
-            R(cell, gx - 0.085, gy - 0.085, gx + 0.085, gy + 0.085, 'mcon')
-            R(cell, gx - 0.175, gy - 0.175, gx + 0.175, gy + 0.175, 'met1')
+        # Gate contact — same wider-stub fix as in build_nfet
+        stub_w  = max(gate_w, LICON_SZ + 0.100)
+        stub_x0 = snap(poly_x0 - (stub_w - gate_w) / 2)
+        stub_x1 = snap(poly_x1 + (stub_w - gate_w) / 2)
+        pc_y    = snap(wf + poly_ext + 0.150)
+        R(cell, stub_x0, snap(wf + poly_ext - 0.050),
+              stub_x1, snap(pc_y + LICON_SZ + 0.150), 'poly')
+        pc_x = snap(stub_x0 + (stub_w - LICON_SZ) / 2)
+        R(cell, pc_x, pc_y, pc_x + LICON_SZ, pc_y + LICON_SZ, 'licon')
+        npc_enc = 0.075
+        R(cell, pc_x - npc_enc, pc_y - npc_enc,
+              pc_x + LICON_SZ + npc_enc, pc_y + LICON_SZ + npc_enc, 'npc')
+        gx = snap(pc_x + LICON_SZ / 2)
+        gy = snap(pc_y + LICON_SZ / 2)
+        R(cell, gx - 0.175, gy - 0.175, gx + 0.175, gy + 0.175, 'li1')
+        R(cell, gx - 0.085, gy - 0.085, gx + 0.085, gy + 0.085, 'mcon')
+        R(cell, gx - 0.175, gy - 0.175, gx + 0.175, gy + 0.175, 'met1')
 
     return cell
 
@@ -332,26 +346,65 @@ def build_inverter(lib, name, wn=1.0, wp=2.0, l=0.150):
     n_w = nfet_bb[1][0] - nfet_bb[0][0] if nfet_bb is not None else 2.0
 
     # Gap must ensure ndiff to nwell >= 0.34um (diff/tap.9)
-    # PFET nwell extends 0.180 below pfet origin
-    # Need gap where nfet poly contacts don't overlap with pfet nwell
     gap = 3.000
     cell.add(gdstk.Reference(nfet, (0, 0)))
     pfet_y = snap(n_h + gap)
     cell.add(gdstk.Reference(pfet, (0, pfet_y)))
 
+    # ---- ROUTING --------------------------------------------------------
+    # All key terminal x positions for a single-finger FET with sd_ext=0.380, l=0.150:
+    sd_ext  = 0.380
+    gate_w  = snap(l)
+    x_src   = snap(sd_ext / 2)                            # source  ~0.190
+    x_drn   = snap(sd_ext + gate_w + sd_ext / 2)          # drain   ~0.720
+
+    # 1. Poly bridge through the gap — connects NFET gate to PFET gate
+    poly_x0_g = snap(sd_ext)
+    poly_x1_g = snap(sd_ext + gate_w)
+    bridge_y0 = snap(wn + 0.130)          # top of nfet poly extension
+    bridge_y1 = snap(pfet_y - 0.130)      # bottom of pfet poly extension
+    if bridge_y1 > bridge_y0:
+        R(cell, poly_x0_g, bridge_y0, poly_x1_g, bridge_y1, 'poly')
+
+    # 2. NFET source → VSS rail (draw VPWR/VGND local rails here too)
+    #    VGND horizontal rail below NFET; VPWR above PFET
+    pfet_top = snap(pfet_y + wp)
+    p_h = pfet_bb[1][1] - pfet_bb[0][1] if pfet_bb is not None else wp + 1.0
+    pfet_cell_top = snap(pfet_y + p_h)
+    pwr_top = snap(pfet_cell_top + 0.500)   # VPWR rail center
+
+    # VGND rail
+    R(cell, snap(x_src - 0.175), pwr_top + 0.100,
+          snap(x_src + 0.175), pwr_top + 0.500, 'met1')
+    # extend nfet source met1 down to VGND stub
+    R(cell, snap(x_src - 0.175), -0.500,
+          snap(x_src + 0.175), snap(wn / 2 + 0.175), 'met1')
+
+    # VPWR connection from PFET source up
+    R(cell, snap(x_src - 0.175), snap(pfet_y + wp / 2 - 0.175),
+          snap(x_src + 0.175), pwr_top + 0.500, 'met1')
+
+    # VPWR/VGND wider horizontal rails
+    total_w = snap(n_w + 1.000)
+    R(cell, 0.0, pwr_top + 0.100, total_w, pwr_top + 0.500, 'met1')
+    R(cell, 0.0, -0.500, total_w, -0.100, 'met1')
+
+    # 3. Drain-to-drain vertical met1 bar (OUTPUT node)
+    R(cell, snap(x_drn - 0.175), snap(wn / 2 - 0.175),
+          snap(x_drn + 0.175), snap(pfet_y + wp / 2 + 0.175), 'met1')
+
+    # 4. Taps + nwell (unchanged from previous)
     tap_x = snap(n_w + 0.400)
     build_ptap(cell, tap_x, 0.0)
-    # Ntap with its own nwell that's big enough to satisfy nwell.1 (min 0.84um)
-    # Place far enough from PFET nwell to satisfy nwell.2a (spacing >= 1.27um)
-    # OR overlap with PFET nwell so they merge
-    # Strategy: extend nwell from PFET to cover the tap
     p_w = pfet_bb[1][0] - pfet_bb[0][0] if pfet_bb is not None else n_w
-    p_h = pfet_bb[1][1] - pfet_bb[0][1] if pfet_bb is not None else 2.0
-    # Place ntap and create one big nwell covering both pfet and ntap
     build_ntap(cell, tap_x, pfet_y, draw_nwell=False)
     R(cell, -NWELL_ENC, pfet_y - NWELL_ENC,
           snap(tap_x + 0.500 + NWELL_ENC),
           snap(pfet_y + wp + NWELL_ENC), 'nwell')
+
+    L(cell, 'VPWR', snap(total_w / 2), pwr_top + 0.300, 'met1_lbl')
+    L(cell, 'VGND', snap(total_w / 2), -0.300, 'met1_lbl')
+    L(cell, 'OUT',  snap(x_drn), snap((wn / 2 + pfet_y + wp / 2) / 2), 'met1_lbl')
 
     return cell
 
@@ -560,16 +613,16 @@ def build_poly_resistor(lib, name, r_ohm, rsh=1112.0, w=0.350):
     R(cell, cx - 0.175, r0_y - 0.175, cx + 0.175, r0_y + 0.175, 'li1')
     R(cell, cx - 0.085, r0_y - 0.085, cx + 0.085, r0_y + 0.085, 'mcon')
     R(cell, cx - 0.175, r0_y - 0.175, cx + 0.175, r0_y + 0.175, 'met1')
-    R(cell, snap(cx - w/2 - NPC_EXT), r0_y - lhw - 0.050,
-          snap(cx + w/2 + NPC_EXT), r0_y + lhw + 0.050, 'npc')
+    R(cell, snap(cx - w/2 - NPC_EXT - 0.025), r0_y - lhw - 0.075,
+          snap(cx + w/2 + NPC_EXT + 0.025), r0_y + lhw + 0.075, 'npc')
 
     r1_y = head + body_l + head / 2
     R(cell, cx - lhw, r1_y - lhw, cx + lhw, r1_y + lhw, 'licon')
     R(cell, cx - 0.175, r1_y - 0.175, cx + 0.175, r1_y + 0.175, 'li1')
     R(cell, cx - 0.085, r1_y - 0.085, cx + 0.085, r1_y + 0.085, 'mcon')
     R(cell, cx - 0.175, r1_y - 0.175, cx + 0.175, r1_y + 0.175, 'met1')
-    R(cell, snap(cx - w/2 - NPC_EXT), r1_y - lhw - 0.050,
-          snap(cx + w/2 + NPC_EXT), r1_y + lhw + 0.050, 'npc')
+    R(cell, snap(cx - w/2 - NPC_EXT - 0.025), r1_y - lhw - 0.075,
+          snap(cx + w/2 + NPC_EXT + 0.025), r1_y + lhw + 0.075, 'npc')
 
     L(cell, 'A', cx, r0_y, 'met1_lbl')
     L(cell, 'B', cx, r1_y, 'met1_lbl')
@@ -581,15 +634,22 @@ def build_poly_resistor(lib, name, r_ohm, rsh=1112.0, w=0.350):
 # VCO — 5-stage current-starved ring oscillator (ALL CUSTOM)
 # ===========================================================================
 def build_vco(lib):
+    """
+    5-stage ring VCO using build_inverter for each stage.
+    Stages are placed in a row; ring connections routed via met2.
+    Bias transistors (pfet_bias, nfet_vtoi) flanked on the left.
+    """
     cell = lib.new_cell("pll_vco")
 
+    # --- Bias transistors ---------------------------------------------------
     pfet_bias = build_pfet(lib, "pfet_vco_bias", w=4.0, l=0.500, nf=2)
     nfet_vtoi = build_nfet(lib, "nfet_vco_vtoi", w=2.0, l=0.500, nf=1)
 
-    pfet_src = build_pfet(lib, "pfet_vco_src", w=4.0, l=0.500, nf=2)
-    pfet_inv = build_pfet(lib, "pfet_vco_inv", w=2.0, l=0.150, nf=1)
-    nfet_inv = build_nfet(lib, "nfet_vco_ninv", w=1.0, l=0.150, nf=1)
-    nfet_sink = build_nfet(lib, "nfet_vco_sink", w=2.0, l=0.500, nf=1)
+    # --- Ring inverter stages -----------------------------------------------
+    stage_cells = []
+    for i in range(5):
+        sc = build_inverter(lib, f"vco_stage{i}", wn=1.0, wp=2.0, l=0.150)
+        stage_cells.append(sc)
 
     buf_inv1 = build_inverter(lib, "vco_buf1", wn=1.0, wp=2.0, l=0.150)
     buf_inv2 = build_inverter(lib, "vco_buf2", wn=1.0, wp=2.0, l=0.150)
@@ -598,69 +658,141 @@ def build_vco(lib):
         bb = c.bounding_box()
         return (bb[1][0] - bb[0][0], bb[1][1] - bb[0][1]) if bb else (2, 2)
 
-    bias_p_sz = cell_size(pfet_bias)
-    bias_n_sz = cell_size(nfet_vtoi)
-    src_sz = cell_size(pfet_src)
-    pinv_sz = cell_size(pfet_inv)
-    ninv_sz = cell_size(nfet_inv)
-    sink_sz = cell_size(nfet_sink)
-    buf_sz = cell_size(buf_inv1)
+    def cell_bb(c):
+        bb = c.bounding_box()
+        return bb if bb else ((0, 0), (2, 2))
 
-    y_nmos = 0.0
-    y_pmos = snap(max(sink_sz[1], ninv_sz[1]) + 3.000)
-    stage_pitch = snap(max(src_sz[0], sink_sz[0]) + 2.000)
+    bias_p_sz  = cell_size(pfet_bias)
+    bias_n_sz  = cell_size(nfet_vtoi)
+    stage_sz   = cell_size(stage_cells[0])
+    buf_sz     = cell_size(buf_inv1)
 
-    x = 0.0
-    cell.add(gdstk.Reference(pfet_bias, (x, y_pmos)))
-    cell.add(gdstk.Reference(nfet_vtoi, (x, y_nmos)))
+    stage_pitch = snap(stage_sz[0] + 2.000)
+    bias_x_end  = snap(max(bias_p_sz[0], bias_n_sz[0]) + 2.000)
 
-    # Bias-stage taps
-    bias_tap_x = snap(max(bias_p_sz[0], bias_n_sz[0]) + 0.2)
-    build_ptap(cell, bias_tap_x, snap(y_nmos + 0.5))
-    build_ntap(cell, bias_tap_x, snap(y_pmos + 0.5), draw_nwell=False)
-    R(cell, x - NWELL_ENC, y_pmos - NWELL_ENC,
-      snap(bias_tap_x + 0.500 + NWELL_ENC),
-      snap(y_pmos + bias_p_sz[1] + NWELL_ENC), 'nwell')
+    # ---- Place bias transistors -------------------------------------------
+    y_bias_pmos = snap(stage_sz[1] / 2 + 2.000)   # centre vertically with stages
+    cell.add(gdstk.Reference(pfet_bias, (0.0, y_bias_pmos)))
+    cell.add(gdstk.Reference(nfet_vtoi, (0.0, 0.0)))
 
-    x = snap(x + max(bias_p_sz[0], bias_n_sz[0]) + 1.500)
+    # bias taps + merged nwell
+    build_ptap(cell, snap(max(bias_p_sz[0], bias_n_sz[0]) + 0.2), 0.5)
+    build_ntap(cell, snap(max(bias_p_sz[0], bias_n_sz[0]) + 0.2),
+               snap(y_bias_pmos + 0.5), draw_nwell=False)
+    R(cell, -NWELL_ENC, y_bias_pmos - NWELL_ENC,
+      snap(max(bias_p_sz[0], bias_n_sz[0]) + 0.7 + NWELL_ENC),
+      snap(y_bias_pmos + bias_p_sz[1] + NWELL_ENC), 'nwell')
 
+    # Bias NFET source → VGND, PFET source → VPWR (rough connections)
+    b_src_x = 0.380 / 2  # sd_ext/2 for single finger
+    R(cell, b_src_x - 0.175, -0.500, b_src_x + 0.175, 0.350, 'met1')  # nfet src→gnd
+
+    # ---- Stage x-offsets --------------------------------------------------
+    stage_x = [snap(bias_x_end + i * stage_pitch) for i in range(5)]
+
+    for i, sc in enumerate(stage_cells):
+        cell.add(gdstk.Reference(sc, (stage_x[i], 0.0)))
+
+    buf_x1 = snap(stage_x[4] + stage_sz[0] + 2.000)
+    buf_x2 = snap(buf_x1 + buf_sz[0] + 2.000)
+    cell.add(gdstk.Reference(buf_inv1, (buf_x1, 0.0)))
+    cell.add(gdstk.Reference(buf_inv2, (buf_x2, 0.0)))
+
+    # ---- VCO ring connections via met2 ------------------------------------
+    # Stage output (OUT) is at the drain of the inverter in each stage:
+    #   Local x = sd_ext + gate_w + sd_ext/2 = 0.380 + 0.150 + 0.190 = 0.720
+    #   Local y = midpoint of drain bar = (wn/2 + pfet_y + wp/2) / 2
+    # Gate input  is the poly-bridge got-contact met1:
+    #   Local x = gate_cx = snap(sd_ext + gate_w/2)  = 0.455
+    #   Local y = nfet gate contact gy ≈ wn + poly_ext_total + LICON_SZ/2
+    # For wn=1.0, l=0.150: gate_y_local ≈ 1.365 (computed from stub)
+
+    sd_ext_v   = 0.380
+    gate_w_v   = 0.150
+    wn_v, wp_v = 1.0, 2.0
+    x_drn_loc  = snap(sd_ext_v + gate_w_v + sd_ext_v / 2)       # 0.720
+    x_gate_loc = snap(sd_ext_v + gate_w_v / 2)                   # 0.455
+    # nfet gate contact y (see gate stub calc in build_nfet):
+    pc_y_gate  = snap(wn_v + 0.130 + 0.150)                      # 1.280
+    y_gate_loc = snap(pc_y_gate + LICON_SZ / 2)                  # 1.365
+    # Inverter output mid y (estimate):
+    n_h_est    = snap(wn_v + 0.130 + 0.150 + LICON_SZ + 0.150)  # ~1.600 poly stub top
+    pfet_y_est = snap(n_h_est + 3.000 + 0.130)                   # add nsdm offset
+    y_out_loc  = snap((wn_v / 2 + pfet_y_est + wp_v / 2) / 2)   # drain midpoint
+
+    met2_y = snap(y_out_loc + 1.000)   # met2 routing track above out node
+
+    def add_ring_via(cx, cy_m1, cy_m2, to_met2=True):
+        """Drop/raise a via from met1 at cy_m1 to/from met2 at cy_m2."""
+        if to_met2:
+            R(cell, cx - 0.175, min(cy_m1, cy_m2) - 0.175,
+              cx + 0.175, max(cy_m1, cy_m2) + 0.175, 'met1')
+            R(cell, cx - 0.075, cy_m2 - 0.075, cx + 0.075, cy_m2 + 0.075, 'via')
+            R(cell, cx - 0.210, cy_m2 - 0.210, cx + 0.210, cy_m2 + 0.210, 'met2')
+        else:
+            R(cell, cx - 0.210, min(cy_m1, cy_m2) - 0.210,
+              cx + 0.210, max(cy_m1, cy_m2) + 0.210, 'met2')
+
+    # Connect stages 0→1, 1→2, 2→3, 3→4 (output of N → gate of N+1)
+    # Stage 4 output → Stage 0 gate (closes ring — route at met2 below)
     for i in range(5):
-        sx = snap(x + i * stage_pitch)
-        pfet_src_y = snap(y_pmos + pinv_sz[1] + 1.5)
-        cell.add(gdstk.Reference(pfet_src, (sx, pfet_src_y)))
-        cell.add(gdstk.Reference(pfet_inv, (sx + 0.500, y_pmos)))
-        cell.add(gdstk.Reference(nfet_inv, (sx + 0.500, snap(y_nmos + sink_sz[1] + 0.500))))
-        cell.add(gdstk.Reference(nfet_sink, (sx, y_nmos)))
+        out_x_g  = snap(stage_x[i] + x_drn_loc)
+        next_i   = (i + 1) % 5
+        gate_x_g = snap(stage_x[next_i] + x_gate_loc)
 
-        tap_sx = snap(sx + max(src_sz[0], sink_sz[0]) + 0.200)
-        build_ptap(cell, tap_sx, snap(y_nmos + 0.5))
-        build_ntap(cell, tap_sx, snap(y_pmos + 0.5), draw_nwell=False)
-        R(cell, sx - NWELL_ENC, y_pmos - NWELL_ENC,
-          snap(tap_sx + 0.500 + NWELL_ENC),
-          snap(pfet_src_y + src_sz[1] + NWELL_ENC), 'nwell')
+        if next_i > i:
+            # simple left-to-right: met2 segment at met2_y
+            add_ring_via(out_x_g,  y_out_loc, met2_y)
+            add_ring_via(gate_x_g, y_gate_loc, met2_y)
+            R(cell, min(out_x_g, gate_x_g) - 0.210, met2_y - 0.210,
+              max(out_x_g, gate_x_g) + 0.210, met2_y + 0.210, 'met2')
+        else:
+            # feedback (stage4 → stage0): route below at met2_y - 3
+            fb_y = snap(met2_y - 3.000)
+            add_ring_via(out_x_g,  y_out_loc, fb_y)
+            add_ring_via(gate_x_g, y_gate_loc, fb_y)
+            R(cell, min(stage_x[0], stage_x[4]) - 1.0, fb_y - 0.210,
+              max(out_x_g, gate_x_g) + 0.210, fb_y + 0.210, 'met2')
 
-    x = snap(x + 5 * stage_pitch + 2.000)
-    cell.add(gdstk.Reference(buf_inv1, (x, y_nmos)))
-    x = snap(x + buf_sz[0] + 1.500)
-    cell.add(gdstk.Reference(buf_inv2, (x, y_nmos)))
+    # Buffer chain: stage4 output → buf1 gate → buf1 output → buf2 gate
+    st4_out_x  = snap(stage_x[4] + x_drn_loc)
+    buf1_g_x   = snap(buf_x1 + x_gate_loc)
+    buf1_out_x = snap(buf_x1 + x_drn_loc)
+    buf2_g_x   = snap(buf_x2 + x_gate_loc)
+    buf2_out_x = snap(buf_x2 + x_drn_loc)   # VCO output
 
-    pfet_src_top = snap(y_pmos + pinv_sz[1] + 1.5 + src_sz[1])
-    R(cell, -1.000, y_pmos - NWELL_ENC,
-      snap(x + buf_sz[0] + 1.000),
-      snap(pfet_src_top + NWELL_ENC), 'nwell')
+    for (xa, xb) in [(st4_out_x, buf1_g_x), (buf1_out_x, buf2_g_x)]:
+        R(cell, min(xa, xb) - 0.210, met2_y - 0.210,
+          max(xa, xb) + 0.210, met2_y + 0.210, 'met2')
+        add_ring_via(xa, y_out_loc,  met2_y)
+        add_ring_via(xb, y_gate_loc, met2_y)
 
+    # ---- Power rails -------------------------------------------------------
     bb = cell.bounding_box()
-    total_w = bb[1][0] - bb[0][0] + 2.0 if bb else 40.0
+    total_w = bb[1][0] - bb[0][0] + 2.0 if bb else 50.0
     pwr_top = bb[1][1] + 0.500 if bb else 15.0
     R(cell, -0.500, pwr_top + 0.100, total_w, pwr_top + 0.600, 'met1')
     R(cell, -0.500, -0.600, total_w, -0.100, 'met1')
-
     build_ptap_row(cell, -1.200, total_w, pitch=8.0)
 
-    L(cell, 'VPWR', 1.0, pwr_top + 0.350, 'met1_lbl')
-    L(cell, 'VGND', 1.0, -0.350, 'met1_lbl')
+    # Connect stage VPWR/VGND rails (from build_inverter) to block-level rails
+    for i in range(5):
+        inv_bb = cell_bb(stage_cells[i])
+        inv_h  = inv_bb[1][1] - inv_bb[0][1]
+        inv_pwr_top   = snap(inv_h + 0.500)
+        inv_pwr_x_loc = snap((inv_bb[1][0] - inv_bb[0][0]) / 2)
+        # Bring inverter VPWR up to block VPWR rail via met1 stripe
+        gx_pwr = snap(stage_x[i] + inv_pwr_x_loc)
+        R(cell, gx_pwr - 0.175, snap(stage_x[i] / stage_pitch * 0 + inv_pwr_top + 0.100),
+          gx_pwr + 0.175, pwr_top + 0.600, 'met1')
 
-    return cell
+    L(cell, 'VPWR',    1.0, pwr_top + 0.350, 'met1_lbl')
+    L(cell, 'VGND',    1.0, -0.350,           'met1_lbl')
+    L(cell, 'VBIAS_P', snap(bias_x_end / 2), snap(y_bias_pmos + 1.0), 'met1_lbl')
+    # VCO output label (buf2 output drain)
+    L(cell, 'VCO_OUT', buf2_out_x, y_out_loc, 'met1_lbl')
+
+    return cell, buf2_out_x, y_out_loc
 
 
 # ===========================================================================
@@ -875,7 +1007,8 @@ def build_loop_filter(lib):
 def build_pll_top(lib):
     top = lib.new_cell(TOP_NAME)
 
-    vco_cell = build_vco(lib)
+    vco_result = build_vco(lib)          # now returns (cell, out_x_local, out_y_local)
+    vco_cell, vco_out_x_local, vco_out_y_local = vco_result
     cp_cell  = build_charge_pump(lib)
     pfd_cell = build_pfd(lib)
     div_cell = build_divider(lib)
@@ -891,26 +1024,34 @@ def build_pll_top(lib):
     div_sz = cell_size(div_cell)
     lf_sz  = cell_size(lf_cell)
 
-    margin = 8.000
+    margin   = 8.000
     y_cursor = 8.000
 
-    # All blocks stacked vertically — no side-by-side
-    top.add(gdstk.Reference(div_cell, (margin, y_cursor)))
+    # Block placements (stacked vertically)
+    div_y = y_cursor
+    top.add(gdstk.Reference(div_cell, (margin, div_y)))
     y_cursor = snap(y_cursor + div_sz[1] + 2.000)
 
-    top.add(gdstk.Reference(pfd_cell, (margin, y_cursor)))
+    pfd_y = y_cursor
+    top.add(gdstk.Reference(pfd_cell, (margin, pfd_y)))
     y_cursor = snap(y_cursor + pfd_sz[1] + 2.000)
 
-    top.add(gdstk.Reference(cp_cell, (margin, y_cursor)))
+    cp_y = y_cursor
+    top.add(gdstk.Reference(cp_cell, (margin, cp_y)))
     y_cursor = snap(y_cursor + cp_sz[1] + 2.000)
 
-    top.add(gdstk.Reference(lf_cell, (margin, y_cursor)))
+    lf_y = y_cursor
+    top.add(gdstk.Reference(lf_cell, (margin, lf_y)))
     y_cursor = snap(y_cursor + lf_sz[1] + 2.000)
 
-    top.add(gdstk.Reference(vco_cell, (margin, y_cursor)))
+    vco_y = y_cursor
+    top.add(gdstk.Reference(vco_cell, (margin, vco_y)))
 
     # ===== PR BOUNDARY =====
     R(top, 0, 0, TILE_W, TILE_H, 'prbndry')
+
+    # ===== AREAID:CE — marks entire tile as core (needed for KLayout DRC) =====
+    R(top, 0, 0, TILE_W, TILE_H, 'areaid_ce')
 
     # ===== POWER DISTRIBUTION (met4 stripes) =====
     R(top, *VDPWR_RECT, 'met4')
@@ -925,16 +1066,34 @@ def build_pll_top(lib):
       (VGND_RECT[0] + VGND_RECT[2]) / 2,
       (VGND_RECT[1] + VGND_RECT[3]) / 2, 'met4_lbl')
 
-    vdd_x = (VDPWR_RECT[0] + VDPWR_RECT[2]) / 2
-    gnd_x = (VGND_RECT[0] + VGND_RECT[2]) / 2
+    vdd_x = (VDPWR_RECT[0] + VDPWR_RECT[2]) / 2  # 2.000
+    gnd_x = (VGND_RECT[0] + VGND_RECT[2]) / 2    # 5.500
 
+    # Met4→Met1 via stacks along the trunk
     for vy in [10.0, 50.0, 100.0, 150.0, 200.0]:
         via_stack(top, vdd_x, vy, 'met1', 'met4')
         via_stack(top, gnd_x, vy, 'met1', 'met4')
 
-    # Met1 power trunks from stripes down to sub-blocks
+    # Vertical Met1 power trunks (thin, full-height)
     R(top, vdd_x - 0.175, 5.000, vdd_x + 0.175, 220.760, 'met1')
     R(top, gnd_x - 0.175, 5.000, gnd_x + 0.175, 220.760, 'met1')
+
+    # Horizontal Met1/Met2 power feeders from trunk to each block
+    # We connect at the top of each block (where the VPWR rail is) and at y_block-0.300 (VGND)
+    blocks_info = [
+        (div_y,  div_sz,  'DIV'),
+        (pfd_y,  pfd_sz,  'PFD'),
+        (cp_y,   cp_sz,   'CP'),
+        (lf_y,   lf_sz,   'LF'),
+        (vco_y,  vco_sz,  'VCO'),
+    ]
+    for (by, bsz, bname) in blocks_info:
+        # VPWR feeder: horizontal met1 from trunk to block, at block's top power rail
+        vpwr_y = snap(by + bsz[1] + 0.850)   # approx center of VPWR rail
+        R(top, vdd_x - 0.175, vpwr_y - 0.175, margin, vpwr_y + 0.175, 'met1')
+        # VGND feeder: horizontal met1 at block bottom rail
+        vgnd_y = snap(by - 0.300)
+        R(top, gnd_x - 0.175, vgnd_y - 0.175, margin, vgnd_y + 0.175, 'met1')
 
     # ===== TT PIN FRAME — analog pins =====
     for i in range(8):
@@ -949,34 +1108,62 @@ def build_pll_top(lib):
         R(top, cx - 0.150, cy - 0.500, cx + 0.150, cy + 0.500, 'met4_pin')
         L(top, pin_name, cx, cy, 'met4_lbl')
 
-    # ===== ANALOG SIGNAL ROUTING (met4 up from pin pads) =====
-    ua0_x = ANALOG_X[0]
-    R(top, ua0_x - 0.450, 1.000, ua0_x + 0.450, 30.000, 'met4')
-    via_stack(top, ua0_x, 29.500, 'met1', 'met4')
+    # ===== ua[0] — PLL clock output (VCO output buffer drain) =====
+    ua0_x = ANALOG_X[0]   # 152.260
+    # VCO output global position
+    vco_out_gx = snap(margin + vco_out_x_local)
+    vco_out_gy = snap(vco_y   + vco_out_y_local)
 
-    ua1_x = ANALOG_X[1]
-    R(top, ua1_x - 0.450, 1.000, ua1_x + 0.450, 20.000, 'met4')
-    via_stack(top, ua1_x, 19.500, 'met1', 'met4')
+    # Met4 stub at ua[0] pad extending up
+    R(top, ua0_x - 0.450, 1.000, ua0_x + 0.450, vco_out_gy + 2.000, 'met4')
+    # Via4→Met3 at ua[0] column at vco_out height
+    via_stack(top, ua0_x, vco_out_gy, 'met1', 'met4')
+    # Horizontal met3 from ua[0] column → VCO output node
+    R(top, min(ua0_x, vco_out_gx) - 0.300, vco_out_gy - 0.300,
+          max(ua0_x, vco_out_gx) + 0.300, vco_out_gy + 0.300, 'met3')
+    # Via2 at VCO output to tie met3 to met1-level VCO output
+    R(top, vco_out_gx - 0.100, vco_out_gy - 0.100,
+          vco_out_gx + 0.100, vco_out_gy + 0.100, 'via2')
+    R(top, vco_out_gx - 0.300, vco_out_gy - 0.300,
+          vco_out_gx + 0.300, vco_out_gy + 0.300, 'met3')
 
-    # ===== INTER-BLOCK MET2 ROUTING =====
+    # ===== ua[1] — VCO output (same node for now; divider routing TBD) =====
+    ua1_x = ANALOG_X[1]   # 132.940
+    R(top, ua1_x - 0.450, 1.000, ua1_x + 0.450, vco_out_gy + 1.000, 'met4')
+    via_stack(top, ua1_x, vco_out_gy, 'met1', 'met4')
+    R(top, min(ua1_x, vco_out_gx) - 0.300, vco_out_gy - 0.300,
+          max(ua1_x, vco_out_gx) + 0.300, vco_out_gy + 0.300, 'met3')
+
+    # ===== INTER-BLOCK ROUTING (met2) — vctrl, feedback, UP/DN =====
     bus_base_x = margin + 2.0
 
-    vctrl_x = snap(bus_base_x + 30.0)
-    R(top, vctrl_x - 0.150, 8.0, vctrl_x + 0.150, y_cursor + vco_sz[1], 'met2')
-    L(top, 'vctrl', vctrl_x, snap(y_cursor - 1.0), 'met2_lbl')
+    # Vctrl: LF top (VCTRL label) → VCO (connects to bias)
+    vctrl_x      = snap(bus_base_x + 30.0)
+    vctrl_lf_y   = snap(lf_y + lf_sz[1] + 1.0)
+    R(top, vctrl_x - 0.210, vctrl_lf_y,
+          vctrl_x + 0.210, snap(vco_y + vco_sz[1] / 2), 'met2')
+    L(top, 'vctrl', vctrl_x, snap(vco_y - 1.0), 'met2_lbl')
 
-    vco_out_x = snap(bus_base_x + 25.0)
-    R(top, vco_out_x - 0.150, 8.0, vco_out_x + 0.150, y_cursor + vco_sz[1], 'met2')
+    # CP output → LF Vctrl input (short vertical met2 or through LF top)
+    cp_out_x  = snap(bus_base_x + 28.0)
+    R(top, cp_out_x - 0.210, snap(cp_y + cp_sz[1] / 2),
+          cp_out_x + 0.210, vctrl_lf_y, 'met2')
+    # Horizontal connector at the CP-level
+    R(top, cp_out_x - 0.210, snap(cp_y + cp_sz[1] / 2),
+          vctrl_x + 0.210, snap(cp_y + cp_sz[1] / 2), 'met2')
 
+    # PFD UP/DN → CP
+    up_x  = snap(bus_base_x + 12.0)
+    dn_x  = snap(bus_base_x + 14.0)
+    pfd_cp_y0 = snap(pfd_y + pfd_sz[1] / 2)
+    pfd_cp_y1 = snap(cp_y + cp_sz[1] / 2)
+    R(top, up_x - 0.210, pfd_cp_y0, up_x + 0.210, pfd_cp_y1, 'met2')
+    R(top, dn_x - 0.210, pfd_cp_y0, dn_x + 0.210, pfd_cp_y1, 'met2')
+
+    # DIV output → PFD feedback
     div_fb_x = snap(bus_base_x + 20.0)
-    div_top_y = snap(8.0 + div_sz[1] + pfd_sz[1] + 6.0)
-    R(top, div_fb_x - 0.150, 8.0, div_fb_x + 0.150, div_top_y, 'met2')
-
-    up_x = snap(bus_base_x + 12.0)
-    dn_x = snap(bus_base_x + 14.0)
-    cp_top_y = snap(8.0 + div_sz[1] + pfd_sz[1] + cp_sz[1] + 9.0)
-    R(top, up_x - 0.150, snap(8.0 + div_sz[1] + 3.0), up_x + 0.150, cp_top_y, 'met2')
-    R(top, dn_x - 0.150, snap(8.0 + div_sz[1] + 3.0), dn_x + 0.150, cp_top_y, 'met2')
+    R(top, div_fb_x - 0.210, snap(div_y + div_sz[1] / 2),
+          div_fb_x + 0.210, snap(pfd_y + pfd_sz[1] / 2), 'met2')
 
     return top
 
@@ -1211,6 +1398,125 @@ def generate_svgs(gds_path, repo_root):
 # ===========================================================================
 # MAIN
 # ===========================================================================
+# ANNOTATED BLOCK DIAGRAM SVG
+# ===========================================================================
+def generate_block_diagram_svg(repo_root):
+    """
+    Generates a clean block-diagram SVG showing the PLL architecture
+    with annotated blocks, signal flow arrows, and pin labels.
+    This does NOT show physical layout — it shows the circuit topology.
+    """
+    W, H = 900, 600
+    blocks = [
+        # (x, y, w, h, name, color, description)
+        (50,  220, 130, 70, "PFD",       "#2563EB", "Phase/Freq\nDetector"),
+        (250, 220, 130, 70, "CP",        "#7C3AED", "Charge\nPump"),
+        (430, 220, 130, 70, "LF",        "#059669", "Loop\nFilter R/C"),
+        (610, 220, 130, 70, "VCO",       "#DC2626", "5-Stage Ring\nOscillator"),
+        (430,  80, 130, 60, "DIV",       "#D97706", "/4 Divider"),
+        (250,  80, 130, 60, "ua[0]",     "#1D4ED8", "Output\nua[0] CLK"),
+        (610, 360, 130, 60, "BUF",       "#6B7280", "Output\nBuffer"),
+    ]
+
+    arrows = [
+        # (x1, y1, x2, y2, label)
+        (180, 255, 250, 255, "UP/DN"),
+        (380, 255, 430, 255, "Icp"),
+        (560, 255, 610, 255, "Vctrl"),
+        (380, 110, 430, 110, "fb_clk"),
+        (250, 110, 180, 200, "fb→PFD"),   # feedback
+        (675, 290, 675, 360, "vco_out"),
+        (675, 420, 380, 420, ""),          # DIV input
+        (430, 420, 250, 140, ""),
+        (675, 255, 675, 220, ""),
+        (740, 255, 800, 255, "ua[0]"),     # output
+    ]
+
+    power_note = [
+        (50,  50, "VDPWR → 1.8V met4 stripe  x=1.0–3.0 µm"),
+        (50,  75, "VGND  → GND   met4 stripe  x=4.5–6.5 µm"),
+        (50, 100, "Power mesh: met1 trunks + horizontal feeders to each block"),
+    ]
+
+    pins = [
+        (50,  490, "ua[0] ← VCO output (CLK out via buffer)", "#EF4444"),
+        (50,  515, "ua[1] ← VCO output (same, divider TBD)",  "#F59E0B"),
+        (50,  540, "clk   ← REF clock input (digital, driven externally)",   "#3B82F6"),
+        (50,  565, "rst_n ← Reset (active low)",               "#6366F1"),
+    ]
+
+    svg = ['<?xml version="1.0" encoding="UTF-8"?>',
+           f'<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{H}" '
+           f'viewBox="0 0 {W} {H}">',
+           f'<rect width="{W}" height="{H}" fill="#0f172a"/>',
+           f'<text x="{W//2}" y="30" font-family="sans-serif" '
+           f'font-size="18" font-weight="bold" fill="#f1f5f9" '
+           f'text-anchor="middle">PLL Block Diagram — sky130A TinyTapeout</text>']
+
+    # Flow arrows
+    for (x1,y1,x2,y2,lbl) in [
+            (180,255,250,255,"UP/DN"), (380,255,430,255,"Icp"),
+            (560,255,610,255,"Vctrl"),
+            (675,290,675,360,"out"), (740,255,820,255,"ua[0]"),
+            (250,110,180,220,"fb"), (430,110,250,110,"fb_clk"),
+            (610,110,430,110,"÷4")]:
+        c = "#CBD5E1"
+        svg.append(f'<defs><marker id="arr" markerWidth="8" markerHeight="8" '
+                   f'refX="6" refY="3" orient="auto">'
+                   f'<path d="M0,0 L0,6 L8,3 Z" fill="{c}"/></marker></defs>')
+        svg.append(f'<line x1="{x1}" y1="{y1}" x2="{x2}" y2="{y2}" '
+                   f'stroke="{c}" stroke-width="2" marker-end="url(#arr)"/>')
+        if lbl:
+            mx, my = (x1+x2)//2, (y1+y2)//2-6
+            svg.append(f'<text x="{mx}" y="{my}" font-family="monospace" '
+                       f'font-size="10" fill="#94A3B8" text-anchor="middle">{lbl}</text>')
+
+    # Blocks
+    for (bx, by, bw, bh, bname, bc, desc) in blocks:
+        svg.append(f'<rect x="{bx}" y="{by}" width="{bw}" height="{bh}" '
+                   f'rx="6" fill="{bc}" fill-opacity="0.85" '
+                   f'stroke="{bc}" stroke-width="2"/>')
+        svg.append(f'<text x="{bx+bw//2}" y="{by+bh//2-6}" '
+                   f'font-family="sans-serif" font-size="15" font-weight="bold" '
+                   f'fill="white" text-anchor="middle">{bname}</text>')
+        for li, line in enumerate(desc.split("\n")):
+            svg.append(f'<text x="{bx+bw//2}" y="{by+bh//2+10+li*13}" '
+                       f'font-family="monospace" font-size="10" '
+                       f'fill="#e2e8f0" text-anchor="middle">{line}</text>')
+
+    # Power notes
+    svg.append(f'<rect x="40" y="40" width="480" height="70" rx="4" '
+               f'fill="#1e293b" stroke="#475569" stroke-width="1"/>')
+    for (nx, ny, note) in power_note:
+        svg.append(f'<text x="{nx}" y="{ny}" font-family="monospace" '
+                   f'font-size="11" fill="#94A3B8">{note}</text>')
+
+    # Pin legend
+    svg.append(f'<text x="40" y="480" font-family="sans-serif" font-size="13" '
+               f'font-weight="bold" fill="#CBD5E1">Analog Pins:</text>')
+    for (nx, ny, note, nc) in pins:
+        svg.append(f'<text x="{nx}" y="{ny}" font-family="monospace" '
+                   f'font-size="11" fill="{nc}">{note}</text>')
+
+    # Ring arrow for VCO
+    svg.append('<path d="M 610,255 Q 580,255 565,235 Q 550,215 580,200 '
+               'Q 610,185 640,200 Q 670,215 660,235 Q 650,250 640,258" '
+               'fill="none" stroke="#FCA5A5" stroke-width="1.5" '
+               'stroke-dasharray="4,2"/>')
+    svg.append('<text x="690" y="210" font-family="monospace" font-size="9" '
+               'fill="#FCA5A5">5-stage ring</text>')
+
+    svg.append('</svg>')
+
+    svg_dir = os.path.join(repo_root, "svg")
+    os.makedirs(svg_dir, exist_ok=True)
+    path = os.path.join(svg_dir, "block_diagram.svg")
+    with open(path, "w") as f:
+        f.write("\n".join(svg))
+    print("  SVG block diagram: %s" % path)
+
+
+# ===========================================================================
 def main():
     print("PLL Layout Generator - sky130A (100%% custom geometry)")
     print("Tile: %.3f x %.3f um" % (TILE_W, TILE_H))
@@ -1315,6 +1621,9 @@ def main():
 
     print("\nGenerating SVGs...")
     generate_svgs(repo_gds, REPO_ROOT)
+
+    print("\nGenerating block diagram SVG...")
+    generate_block_diagram_svg(REPO_ROOT)
 
     print("\nLayout generation complete - 100%% custom geometry, no standard cells.")
 

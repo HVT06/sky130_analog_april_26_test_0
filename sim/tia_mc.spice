@@ -1,0 +1,126 @@
+* =============================================================
+* TIA Post-Layout: Monte Carlo Analysis (TT corner, 27C)
+* =============================================================
+* Runs N_MC transient/AC instances with process + mismatch.
+* MC_MM_SWITCH=1 enables mismatch (per-device AGAUSS variation).
+* MC_PR_SWITCH=1 enables process (global parameter variation).
+* =============================================================
+
+.title TIA Monte Carlo Analysis
+
+.include "/home/hvt06/Downloads/open_pdks/sky130/sky130A/libs.ref/sky130_fd_pr/spice/sky130_fd_pr__nfet_01v8__tt.pm3.spice"
+.include "/home/hvt06/Downloads/open_pdks/sky130/sky130A/libs.ref/sky130_fd_pr/spice/sky130_fd_pr__pfet_01v8_hvt__tt.pm3.spice"
+
+* ---- Monte Carlo switches: mismatch ON, process ON ----
+.param mc_mm_switch = 1
+.param mc_pr_switch = 1
+.param MC_MM_SWITCH = 1
+.param MC_PR_SWITCH = 1
+
+* ---- Slope params: enable for process variation ----
+* (AGAUSS-based slopes applied internally by each model)
+.param sky130_fd_pr__nfet_01v8__toxe_slope     = 1
+.param sky130_fd_pr__nfet_01v8__vth0_slope     = 1
+.param sky130_fd_pr__nfet_01v8__voff_slope     = 1
+.param sky130_fd_pr__nfet_01v8__nfactor_slope  = 1
+.param sky130_fd_pr__nfet_01v8__toxe_slope1    = 0
+.param sky130_fd_pr__nfet_01v8__vth0_slope1    = 0
+.param sky130_fd_pr__nfet_01v8__voff_slope1    = 0
+.param sky130_fd_pr__nfet_01v8__nfactor_slope1 = 0
+.param sky130_fd_pr__nfet_01v8__wlod_diff      = 0
+.param sky130_fd_pr__nfet_01v8__kvth0_diff     = 0
+.param sky130_fd_pr__nfet_01v8__lkvth0_diff    = 0
+.param sky130_fd_pr__nfet_01v8__wkvth0_diff    = 0
+.param sky130_fd_pr__nfet_01v8__ku0_diff       = 0
+.param sky130_fd_pr__nfet_01v8__lku0_diff      = 0
+.param sky130_fd_pr__nfet_01v8__wku0_diff      = 0
+.param sky130_fd_pr__nfet_01v8__kvsat_diff     = 0
+.param sky130_fd_pr__pfet_01v8_hvt__toxe_slope     = 1
+.param sky130_fd_pr__pfet_01v8_hvt__vth0_slope     = 1
+.param sky130_fd_pr__pfet_01v8_hvt__voff_slope     = 1
+.param sky130_fd_pr__pfet_01v8_hvt__nfactor_slope  = 1
+.param sky130_fd_pr__pfet_01v8_hvt__toxe_slope1    = 0
+.param sky130_fd_pr__pfet_01v8_hvt__vth0_slope1    = 0
+.param sky130_fd_pr__pfet_01v8_hvt__voff_slope1    = 0
+.param sky130_fd_pr__pfet_01v8_hvt__nfactor_slope1 = 0
+.param sky130_fd_pr__pfet_01v8_hvt__wlod_diff      = 0
+.param sky130_fd_pr__pfet_01v8_hvt__kvth0_diff     = 0
+.param sky130_fd_pr__pfet_01v8_hvt__lkvth0_diff    = 0
+.param sky130_fd_pr__pfet_01v8_hvt__wkvth0_diff    = 0
+.param sky130_fd_pr__pfet_01v8_hvt__ku0_diff       = 0
+.param sky130_fd_pr__pfet_01v8_hvt__lku0_diff      = 0
+.param sky130_fd_pr__pfet_01v8_hvt__wku0_diff      = 0
+.param sky130_fd_pr__pfet_01v8_hvt__kvsat_diff     = 0
+
+* ---- Extracted inverter subcircuit ----
+.subckt inv6_extracted gate drain vdd vss
+X0  drain gate vdd  vdd  sky130_fd_pr__pfet_01v8_hvt ad=0.135e-12 pd=1.27e-6 as=0.135e-12 ps=1.27e-6 w=1e-6 l=1.5e-7
+X1  drain gate vss  vss  sky130_fd_pr__nfet_01v8     ad=0.08775e-12 pd=0.92e-6 as=0.247e-12 ps=2.06e-6 w=0.65e-6 l=1.5e-7
+X2  vdd   gate drain vdd  sky130_fd_pr__pfet_01v8_hvt ad=0.135e-12 pd=1.27e-6 as=0.135e-12 ps=1.27e-6 w=1e-6 l=1.5e-7
+X3  drain gate vss  vss  sky130_fd_pr__nfet_01v8     ad=0.08775e-12 pd=0.92e-6 as=0.08775e-12 ps=0.92e-6 w=0.65e-6 l=1.5e-7
+X4  vdd   gate drain vdd  sky130_fd_pr__pfet_01v8_hvt ad=0.135e-12 pd=1.27e-6 as=0.135e-12 ps=1.27e-6 w=1e-6 l=1.5e-7
+X5  vdd   gate drain vdd  sky130_fd_pr__pfet_01v8_hvt ad=0.27e-12  pd=2.54e-6 as=0.135e-12 ps=1.27e-6 w=1e-6 l=1.5e-7
+X6  drain gate vss  vss  sky130_fd_pr__nfet_01v8     ad=0.08775e-12 pd=0.92e-6 as=0.08775e-12 ps=0.92e-6 w=0.65e-6 l=1.5e-7
+X7  drain gate vdd  vdd  sky130_fd_pr__pfet_01v8_hvt ad=0.135e-12 pd=1.27e-6 as=0.43e-12  ps=2.86e-6 w=1e-6 l=1.5e-7
+X8  vss   gate drain vss  sky130_fd_pr__nfet_01v8     ad=0.08775e-12 pd=0.92e-6 as=0.08775e-12 ps=0.92e-6 w=0.65e-6 l=1.5e-7
+X9  drain gate vdd  vdd  sky130_fd_pr__pfet_01v8_hvt ad=0.135e-12 pd=1.27e-6 as=0.135e-12 ps=1.27e-6 w=1e-6 l=1.5e-7
+X10 vss   gate drain vss  sky130_fd_pr__nfet_01v8     ad=0.08775e-12 pd=0.92e-6 as=0.08775e-12 ps=0.92e-6 w=0.65e-6 l=1.5e-7
+X11 vss   gate drain vss  sky130_fd_pr__nfet_01v8     ad=0.1755e-12 pd=1.84e-6 as=0.08775e-12 ps=0.92e-6 w=0.65e-6 l=1.5e-7
+.ends inv6_extracted
+
+Vdd vdd 0 1.8
+Xinv vin vout vdd 0 inv6_extracted
+Rfb  vout vin 5000
+Iin  0 vin DC 0 AC 1
+Cpd  vin 0 100f
+
+.control
+  set noaskquit
+  set temp = 27
+
+  * Run 200 Monte Carlo AC sweeps
+  let mc_run = 0
+  let n_mc = 200
+
+  * Storage vectors
+  let zt_dc_arr  = unitvec(n_mc) * 0
+  let bw_arr     = unitvec(n_mc) * 0
+  let vbias_arr  = unitvec(n_mc) * 0
+
+  dowhile mc_run < n_mc
+    op
+    let vbias_arr[mc_run] = v(vin)
+    ac dec 50 1MEG 100G
+    let zt_db = 20*log10(mag(v(vout)))
+    let zt_dc_arr[mc_run] = zt_db[0]
+
+    * find -3dB crossing
+    let zt0 = zt_db[0]
+    let above = (zt_db gt (zt0 - 3))
+    let cross = (above[1 to length(above)-1] - above[0 to length(above)-2]) lt 0
+    let idx3 = (cross * [0:length(cross)-1])
+    * Use frequency at -3dB if found
+    if (length(idx3) > 0)
+      let bw_arr[mc_run] = frequency[idx3[0]]
+    else
+      let bw_arr[mc_run] = 1e11
+    end
+
+    write sim/results/mc_run_{mc_run}.raw
+    let mc_run = mc_run + 1
+  end
+
+  * Print statistics
+  echo "=== Monte Carlo Statistics (N=@@N_MC@@) ==="
+  echo "Zt(DC): mean/std/min/max"
+  print mean(zt_dc_arr) std(zt_dc_arr) min(zt_dc_arr) max(zt_dc_arr)
+  echo "BW: mean/std/min/max"
+  print mean(bw_arr) std(bw_arr) min(bw_arr) max(bw_arr)
+  echo "Vbias: mean/std"
+  print mean(vbias_arr) std(vbias_arr)
+
+  write sim/results/mc_summary.raw
+  quit
+.endc
+
+.end
