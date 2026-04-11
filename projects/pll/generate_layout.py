@@ -14,6 +14,7 @@ import os
 import sys
 import math
 import shutil
+import json
 import warnings
 
 warnings.filterwarnings("ignore")
@@ -1079,7 +1080,8 @@ def build_pll_top(lib):
     R(top, gnd_x - 0.175, 5.000, gnd_x + 0.175, 220.760, 'met1')
 
     # Horizontal Met1/Met2 power feeders from trunk to each block
-    # We connect at the top of each block (where the VPWR rail is) and at y_block-0.300 (VGND)
+    # via_stack at the trunk end AND block-edge endpoint ensures met1 feeder never floats
+    # (KLayout BEOL: m1.not_interacting(mcon.or(via)) fires on isolated met1)
     blocks_info = [
         (div_y,  div_sz,  'DIV'),
         (pfd_y,  pfd_sz,  'PFD'),
@@ -1091,9 +1093,13 @@ def build_pll_top(lib):
         # VPWR feeder: horizontal met1 from trunk to block, at block's top power rail
         vpwr_y = snap(by + bsz[1] + 0.850)   # approx center of VPWR rail
         R(top, vdd_x - 0.175, vpwr_y - 0.175, margin, vpwr_y + 0.175, 'met1')
+        via_stack(top, vdd_x, vpwr_y, 'met1', 'met2')      # trunk end
+        via_stack(top, margin - 0.175, vpwr_y, 'met1', 'met2')  # block edge
         # VGND feeder: horizontal met1 at block bottom rail
         vgnd_y = snap(by - 0.300)
         R(top, gnd_x - 0.175, vgnd_y - 0.175, margin, vgnd_y + 0.175, 'met1')
+        via_stack(top, gnd_x, vgnd_y, 'met1', 'met2')      # trunk end
+        via_stack(top, margin - 0.175, vgnd_y, 'met1', 'met2')  # block edge
 
     # ===== TT PIN FRAME — analog pins =====
     for i in range(8):
@@ -1116,54 +1122,87 @@ def build_pll_top(lib):
 
     # Met4 stub at ua[0] pad extending up
     R(top, ua0_x - 0.450, 1.000, ua0_x + 0.450, vco_out_gy + 2.000, 'met4')
-    # Via4→Met3 at ua[0] column at vco_out height
+    # Full via stack at ua[0] column: li1→met4 (includes via2 needed for met3 enclosure)
     via_stack(top, ua0_x, vco_out_gy, 'met1', 'met4')
+    # Via stack at VCO output column (met1→met3) anchors the far end of met3 wire
+    via_stack(top, vco_out_gx, vco_out_gy, 'met1', 'met3')
     # Horizontal met3 from ua[0] column → VCO output node
     R(top, min(ua0_x, vco_out_gx) - 0.300, vco_out_gy - 0.300,
           max(ua0_x, vco_out_gx) + 0.300, vco_out_gy + 0.300, 'met3')
-    # Via2 at VCO output to tie met3 to met1-level VCO output
-    R(top, vco_out_gx - 0.100, vco_out_gy - 0.100,
-          vco_out_gx + 0.100, vco_out_gy + 0.100, 'via2')
-    R(top, vco_out_gx - 0.300, vco_out_gy - 0.300,
-          vco_out_gx + 0.300, vco_out_gy + 0.300, 'met3')
 
     # ===== ua[1] — VCO output (same node for now; divider routing TBD) =====
     ua1_x = ANALOG_X[1]   # 132.940
-    R(top, ua1_x - 0.450, 1.000, ua1_x + 0.450, vco_out_gy + 1.000, 'met4')
-    via_stack(top, ua1_x, vco_out_gy, 'met1', 'met4')
-    R(top, min(ua1_x, vco_out_gx) - 0.300, vco_out_gy - 0.300,
-          max(ua1_x, vco_out_gx) + 0.300, vco_out_gy + 0.300, 'met3')
+    ua1_gy = snap(vco_out_gy - 0.800)    # offset slightly to avoid met3 overlap with ua[0]
+    R(top, ua1_x - 0.450, 1.000, ua1_x + 0.450, ua1_gy + 2.000, 'met4')
+    # Full via stack at ua[1] column
+    via_stack(top, ua1_x, ua1_gy, 'met1', 'met4')
+    # Via stack at VCO output column (met1→met3) for ua[1] track
+    via_stack(top, vco_out_gx, ua1_gy, 'met1', 'met3')
+    # Horizontal met3 from VCO output column → ua[1] column
+    R(top, min(ua1_x, vco_out_gx) - 0.300, ua1_gy - 0.300,
+          max(ua1_x, vco_out_gx) + 0.300, ua1_gy + 0.300, 'met3')
 
     # ===== INTER-BLOCK ROUTING (met2) — vctrl, feedback, UP/DN =====
+    # Every met2 segment needs via_stack at both endpoints (KLayout BEOL rule:
+    # m2.not_interacting(via.or(via2)) fires on isolated met2).
     bus_base_x = margin + 2.0
 
     # Vctrl: LF top (VCTRL label) → VCO (connects to bias)
     vctrl_x      = snap(bus_base_x + 30.0)
     vctrl_lf_y   = snap(lf_y + lf_sz[1] + 1.0)
+    vctrl_vco_y  = snap(vco_y + vco_sz[1] / 2)
     R(top, vctrl_x - 0.210, vctrl_lf_y,
-          vctrl_x + 0.210, snap(vco_y + vco_sz[1] / 2), 'met2')
+          vctrl_x + 0.210, vctrl_vco_y, 'met2')
+    via_stack(top, vctrl_x, vctrl_lf_y, 'met1', 'met2')
+    via_stack(top, vctrl_x, vctrl_vco_y, 'met1', 'met2')
     L(top, 'vctrl', vctrl_x, snap(vco_y - 1.0), 'met2_lbl')
 
     # CP output → LF Vctrl input (short vertical met2 or through LF top)
     cp_out_x  = snap(bus_base_x + 28.0)
-    R(top, cp_out_x - 0.210, snap(cp_y + cp_sz[1] / 2),
+    cp_mid_y  = snap(cp_y + cp_sz[1] / 2)
+    R(top, cp_out_x - 0.210, cp_mid_y,
           cp_out_x + 0.210, vctrl_lf_y, 'met2')
+    via_stack(top, cp_out_x, cp_mid_y,   'met1', 'met2')
+    via_stack(top, cp_out_x, vctrl_lf_y, 'met1', 'met2')
     # Horizontal connector at the CP-level
-    R(top, cp_out_x - 0.210, snap(cp_y + cp_sz[1] / 2),
-          vctrl_x + 0.210, snap(cp_y + cp_sz[1] / 2), 'met2')
+    R(top, cp_out_x - 0.210, cp_mid_y,
+          vctrl_x + 0.210, cp_mid_y, 'met2')
+    via_stack(top, vctrl_x, cp_mid_y, 'met1', 'met2')
+    # (cp_out_x end already has a via_stack above)
 
     # PFD UP/DN → CP
     up_x  = snap(bus_base_x + 12.0)
     dn_x  = snap(bus_base_x + 14.0)
     pfd_cp_y0 = snap(pfd_y + pfd_sz[1] / 2)
-    pfd_cp_y1 = snap(cp_y + cp_sz[1] / 2)
+    pfd_cp_y1 = cp_mid_y
     R(top, up_x - 0.210, pfd_cp_y0, up_x + 0.210, pfd_cp_y1, 'met2')
+    via_stack(top, up_x, pfd_cp_y0, 'met1', 'met2')
+    via_stack(top, up_x, pfd_cp_y1, 'met1', 'met2')
     R(top, dn_x - 0.210, pfd_cp_y0, dn_x + 0.210, pfd_cp_y1, 'met2')
+    via_stack(top, dn_x, pfd_cp_y0, 'met1', 'met2')
+    via_stack(top, dn_x, pfd_cp_y1, 'met1', 'met2')
 
     # DIV output → PFD feedback
-    div_fb_x = snap(bus_base_x + 20.0)
-    R(top, div_fb_x - 0.210, snap(div_y + div_sz[1] / 2),
-          div_fb_x + 0.210, snap(pfd_y + pfd_sz[1] / 2), 'met2')
+    div_fb_x  = snap(bus_base_x + 20.0)
+    div_fb_y0 = snap(div_y + div_sz[1] / 2)
+    div_fb_y1 = snap(pfd_y + pfd_sz[1] / 2)
+    R(top, div_fb_x - 0.210, div_fb_y0,
+          div_fb_x + 0.210, div_fb_y1, 'met2')
+    via_stack(top, div_fb_x, div_fb_y0, 'met1', 'met2')
+    via_stack(top, div_fb_x, div_fb_y1, 'met1', 'met2')
+
+    # Write block extents JSON so generate_svgs can draw annotation overlays
+    block_extents = {
+        "DIV": [margin, div_y, margin + div_sz[0], div_y + div_sz[1]],
+        "PFD": [margin, pfd_y, margin + pfd_sz[0], pfd_y + pfd_sz[1]],
+        "CP":  [margin, cp_y,  margin + cp_sz[0],  cp_y  + cp_sz[1]],
+        "LF":  [margin, lf_y,  margin + lf_sz[0],  lf_y  + lf_sz[1]],
+        "VCO": [margin, vco_y, margin + vco_sz[0],  vco_y + vco_sz[1]],
+    }
+    json_path = os.path.join(SCRIPT_DIR, "gds_out", "block_extents.json")
+    os.makedirs(os.path.dirname(json_path), exist_ok=True)
+    with open(json_path, "w") as f:
+        json.dump(block_extents, f, indent=2)
 
     return top
 
@@ -1321,6 +1360,36 @@ def generate_svgs(gds_path, repo_root):
 
     combined_parts.append(labels_to_svg(all_labels, bb_min, die_h, SCALE_SVG))
 
+    # Block annotation overlays — white-bordered transparent boxes with labels
+    # Colors chosen to be visible against dark background
+    BLOCK_COLORS = {
+        "DIV": "#F59E0B", "PFD": "#3B82F6", "CP": "#8B5CF6",
+        "LF":  "#10B981", "VCO": "#EF4444",
+    }
+    json_path = os.path.join(os.path.dirname(gds_path), "block_extents.json")
+    if os.path.exists(json_path):
+        with open(json_path) as jf:
+            block_extents = json.load(jf)
+        for bname, (bx1, by1, bx2, by2) in block_extents.items():
+            # Convert layout coordinates to SVG coordinates
+            sx1 = (bx1 - bb_min[0]) * SCALE_SVG
+            sy2 = (die_h - (by1 - bb_min[1])) * SCALE_SVG   # y1 in layout → bottom in SVG
+            sx2 = (bx2 - bb_min[0]) * SCALE_SVG
+            sy1 = (die_h - (by2 - bb_min[1])) * SCALE_SVG   # y2 in layout → top in SVG
+            bw  = sx2 - sx1
+            bh  = sy2 - sy1
+            bc  = BLOCK_COLORS.get(bname, "#FFFFFF")
+            combined_parts.append(
+                '<rect x="%.1f" y="%.1f" width="%.1f" height="%.1f" '
+                'fill="none" stroke="%s" stroke-width="2" '
+                'stroke-dasharray="6,3" opacity="0.85"/>'
+                % (sx1, sy1, bw, bh, bc))
+            combined_parts.append(
+                '<text x="%.1f" y="%.1f" font-family="sans-serif" '
+                'font-size="11" font-weight="bold" fill="%s" '
+                'text-anchor="middle">%s</text>'
+                % (sx1 + bw / 2, sy1 + 14, bc, bname))
+
     legend_y = die_h * SCALE_SVG - 15
     for i, lk in enumerate(LAYER_ORDER):
         if lk not in SVG_STYLE:
@@ -1398,125 +1467,6 @@ def generate_svgs(gds_path, repo_root):
 # ===========================================================================
 # MAIN
 # ===========================================================================
-# ANNOTATED BLOCK DIAGRAM SVG
-# ===========================================================================
-def generate_block_diagram_svg(repo_root):
-    """
-    Generates a clean block-diagram SVG showing the PLL architecture
-    with annotated blocks, signal flow arrows, and pin labels.
-    This does NOT show physical layout — it shows the circuit topology.
-    """
-    W, H = 900, 600
-    blocks = [
-        # (x, y, w, h, name, color, description)
-        (50,  220, 130, 70, "PFD",       "#2563EB", "Phase/Freq\nDetector"),
-        (250, 220, 130, 70, "CP",        "#7C3AED", "Charge\nPump"),
-        (430, 220, 130, 70, "LF",        "#059669", "Loop\nFilter R/C"),
-        (610, 220, 130, 70, "VCO",       "#DC2626", "5-Stage Ring\nOscillator"),
-        (430,  80, 130, 60, "DIV",       "#D97706", "/4 Divider"),
-        (250,  80, 130, 60, "ua[0]",     "#1D4ED8", "Output\nua[0] CLK"),
-        (610, 360, 130, 60, "BUF",       "#6B7280", "Output\nBuffer"),
-    ]
-
-    arrows = [
-        # (x1, y1, x2, y2, label)
-        (180, 255, 250, 255, "UP/DN"),
-        (380, 255, 430, 255, "Icp"),
-        (560, 255, 610, 255, "Vctrl"),
-        (380, 110, 430, 110, "fb_clk"),
-        (250, 110, 180, 200, "fb→PFD"),   # feedback
-        (675, 290, 675, 360, "vco_out"),
-        (675, 420, 380, 420, ""),          # DIV input
-        (430, 420, 250, 140, ""),
-        (675, 255, 675, 220, ""),
-        (740, 255, 800, 255, "ua[0]"),     # output
-    ]
-
-    power_note = [
-        (50,  50, "VDPWR → 1.8V met4 stripe  x=1.0–3.0 µm"),
-        (50,  75, "VGND  → GND   met4 stripe  x=4.5–6.5 µm"),
-        (50, 100, "Power mesh: met1 trunks + horizontal feeders to each block"),
-    ]
-
-    pins = [
-        (50,  490, "ua[0] ← VCO output (CLK out via buffer)", "#EF4444"),
-        (50,  515, "ua[1] ← VCO output (same, divider TBD)",  "#F59E0B"),
-        (50,  540, "clk   ← REF clock input (digital, driven externally)",   "#3B82F6"),
-        (50,  565, "rst_n ← Reset (active low)",               "#6366F1"),
-    ]
-
-    svg = ['<?xml version="1.0" encoding="UTF-8"?>',
-           f'<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{H}" '
-           f'viewBox="0 0 {W} {H}">',
-           f'<rect width="{W}" height="{H}" fill="#0f172a"/>',
-           f'<text x="{W//2}" y="30" font-family="sans-serif" '
-           f'font-size="18" font-weight="bold" fill="#f1f5f9" '
-           f'text-anchor="middle">PLL Block Diagram — sky130A TinyTapeout</text>']
-
-    # Flow arrows
-    for (x1,y1,x2,y2,lbl) in [
-            (180,255,250,255,"UP/DN"), (380,255,430,255,"Icp"),
-            (560,255,610,255,"Vctrl"),
-            (675,290,675,360,"out"), (740,255,820,255,"ua[0]"),
-            (250,110,180,220,"fb"), (430,110,250,110,"fb_clk"),
-            (610,110,430,110,"÷4")]:
-        c = "#CBD5E1"
-        svg.append(f'<defs><marker id="arr" markerWidth="8" markerHeight="8" '
-                   f'refX="6" refY="3" orient="auto">'
-                   f'<path d="M0,0 L0,6 L8,3 Z" fill="{c}"/></marker></defs>')
-        svg.append(f'<line x1="{x1}" y1="{y1}" x2="{x2}" y2="{y2}" '
-                   f'stroke="{c}" stroke-width="2" marker-end="url(#arr)"/>')
-        if lbl:
-            mx, my = (x1+x2)//2, (y1+y2)//2-6
-            svg.append(f'<text x="{mx}" y="{my}" font-family="monospace" '
-                       f'font-size="10" fill="#94A3B8" text-anchor="middle">{lbl}</text>')
-
-    # Blocks
-    for (bx, by, bw, bh, bname, bc, desc) in blocks:
-        svg.append(f'<rect x="{bx}" y="{by}" width="{bw}" height="{bh}" '
-                   f'rx="6" fill="{bc}" fill-opacity="0.85" '
-                   f'stroke="{bc}" stroke-width="2"/>')
-        svg.append(f'<text x="{bx+bw//2}" y="{by+bh//2-6}" '
-                   f'font-family="sans-serif" font-size="15" font-weight="bold" '
-                   f'fill="white" text-anchor="middle">{bname}</text>')
-        for li, line in enumerate(desc.split("\n")):
-            svg.append(f'<text x="{bx+bw//2}" y="{by+bh//2+10+li*13}" '
-                       f'font-family="monospace" font-size="10" '
-                       f'fill="#e2e8f0" text-anchor="middle">{line}</text>')
-
-    # Power notes
-    svg.append(f'<rect x="40" y="40" width="480" height="70" rx="4" '
-               f'fill="#1e293b" stroke="#475569" stroke-width="1"/>')
-    for (nx, ny, note) in power_note:
-        svg.append(f'<text x="{nx}" y="{ny}" font-family="monospace" '
-                   f'font-size="11" fill="#94A3B8">{note}</text>')
-
-    # Pin legend
-    svg.append(f'<text x="40" y="480" font-family="sans-serif" font-size="13" '
-               f'font-weight="bold" fill="#CBD5E1">Analog Pins:</text>')
-    for (nx, ny, note, nc) in pins:
-        svg.append(f'<text x="{nx}" y="{ny}" font-family="monospace" '
-                   f'font-size="11" fill="{nc}">{note}</text>')
-
-    # Ring arrow for VCO
-    svg.append('<path d="M 610,255 Q 580,255 565,235 Q 550,215 580,200 '
-               'Q 610,185 640,200 Q 670,215 660,235 Q 650,250 640,258" '
-               'fill="none" stroke="#FCA5A5" stroke-width="1.5" '
-               'stroke-dasharray="4,2"/>')
-    svg.append('<text x="690" y="210" font-family="monospace" font-size="9" '
-               'fill="#FCA5A5">5-stage ring</text>')
-
-    svg.append('</svg>')
-
-    svg_dir = os.path.join(repo_root, "svg")
-    os.makedirs(svg_dir, exist_ok=True)
-    path = os.path.join(svg_dir, "block_diagram.svg")
-    with open(path, "w") as f:
-        f.write("\n".join(svg))
-    print("  SVG block diagram: %s" % path)
-
-
-# ===========================================================================
 def main():
     print("PLL Layout Generator - sky130A (100%% custom geometry)")
     print("Tile: %.3f x %.3f um" % (TILE_W, TILE_H))
@@ -1587,6 +1537,27 @@ def main():
     for lbl in all_labels:
         top_cell.add(lbl)
 
+    # Post-merge: anchor any isolated met1 polygons (BEOL: m1 must touch mcon or via)
+    # This handles block-internal VPWR/VGND rails that have no S/D contacts in them.
+    m1_key   = LY['met1']
+    via_key  = LY['via']
+    mcon_key = LY['mcon']
+    via2_key = LY['via2']
+    m1_polys_post  = [p for p in top_cell.polygons if (p.layer, p.datatype) == m1_key]
+    anchor_polys   = [p for p in top_cell.polygons if (p.layer, p.datatype) in (via_key, mcon_key)]
+    isolated_m1 = []
+    for m in m1_polys_post:
+        if not any(gdstk.boolean([m], [v], 'and', layer=m1_key[0], datatype=m1_key[1])
+                   for v in anchor_polys):
+            isolated_m1.append(m)
+    if isolated_m1:
+        print("Anchoring %d isolated met1 polygons with via_stack..." % len(isolated_m1))
+        for m in isolated_m1:
+            bb = m.bounding_box()
+            cx = (bb[0][0] + bb[1][0]) / 2
+            cy = (bb[0][1] + bb[1][1]) / 2
+            via_stack(top_cell, snap(cx), snap(cy), 'met1', 'met2')
+
     # Write GDS
     out_dir = os.path.join(SCRIPT_DIR, "gds_out")
     os.makedirs(out_dir, exist_ok=True)
@@ -1621,9 +1592,6 @@ def main():
 
     print("\nGenerating SVGs...")
     generate_svgs(repo_gds, REPO_ROOT)
-
-    print("\nGenerating block diagram SVG...")
-    generate_block_diagram_svg(REPO_ROOT)
 
     print("\nLayout generation complete - 100%% custom geometry, no standard cells.")
 
