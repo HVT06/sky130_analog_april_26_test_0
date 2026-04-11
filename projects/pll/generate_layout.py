@@ -948,7 +948,291 @@ def main():
                 h = bb[1][1] - bb[0][1]
                 print(f"  {c.name}: {w:.2f} x {h:.2f} µm")
 
+    # Copy GDS to repo root
+    repo_root = os.path.abspath(os.path.join(SCRIPT_DIR, "..", ".."))
+    repo_gds = os.path.join(repo_root, "gds", "tt_um_pll_sky130.gds")
+    os.makedirs(os.path.dirname(repo_gds), exist_ok=True)
+    import shutil
+    shutil.copy2(OUT_GDS, repo_gds)
+    print(f"\nGDS copied to: {repo_gds}")
+
+    # ================================================================
+    # LEF GENERATION
+    # ================================================================
+    generate_lef(repo_root, top_cell)
+
+    # ================================================================
+    # SVG GENERATION
+    # ================================================================
+    generate_svgs(OUT_GDS, repo_root)
+
     print("\nLayout generation complete.")
+
+
+# ===========================================================================
+# LEF GENERATION — TT-compatible pin frame
+# ===========================================================================
+# Tiny Tapeout standard analog pin X positions (from TIA template)
+ANALOG_X = [152.260, 132.940, 113.620, 94.300, 74.980, 55.660, 36.340, 17.020]
+VDPWR_RECT = (1.0, 5.0, 3.0, 220.76)
+VGND_RECT  = (4.5, 5.0, 6.5, 220.76)
+
+# Digital pin positions (x, y) on met4; y=225.260 = top edge
+DIGITAL_PINS = {}
+DIGITAL_PINS['clk']   = (143.980, 225.260)
+DIGITAL_PINS['ena']   = (146.740, 225.260)
+DIGITAL_PINS['rst_n'] = (141.220, 225.260)
+for _i in range(8):
+    DIGITAL_PINS[f'ui_in[{_i}]']   = (138.460 - _i * 2.760, 225.260)
+    DIGITAL_PINS[f'uo_out[{_i}]']  = ( 94.300 - _i * 2.760, 225.260)
+    DIGITAL_PINS[f'uio_in[{_i}]']  = (116.380 - _i * 2.760, 225.260)
+    DIGITAL_PINS[f'uio_out[{_i}]'] = ( 72.220 - _i * 2.760, 225.260)
+    DIGITAL_PINS[f'uio_oe[{_i}]']  = ( 50.140 - _i * 2.760, 225.260)
+
+
+def generate_lef(repo_root, top_cell):
+    """Generate LEF abstract for TT CI compatibility."""
+    TOP = top_cell.name
+    lef_dir = os.path.join(repo_root, "lef")
+    os.makedirs(lef_dir, exist_ok=True)
+
+    lef_lines = [
+        'VERSION 5.8 ;', 'BUSBITCHARS "[]" ;', 'DIVIDERCHAR "/" ;', '',
+        f'MACRO {TOP}', '  CLASS BLOCK ;', f'  FOREIGN {TOP} ;',
+        '  ORIGIN 0.000 0.000 ;', f'  SIZE {TILE_W:.3f} BY {TILE_H:.3f} ;',
+        '  SYMMETRY X Y ;', '',
+    ]
+
+    # Power pins
+    for name, rect_coords in [('VDPWR', VDPWR_RECT), ('VGND', VGND_RECT)]:
+        use = 'POWER' if name == 'VDPWR' else 'GROUND'
+        x1, y1, x2, y2 = rect_coords
+        lef_lines += [
+            f'  PIN {name}', f'    DIRECTION INOUT ;', f'    USE {use} ;',
+            f'    PORT', f'      LAYER met4 ;',
+            f'        RECT {x1:.3f} {y1:.3f} {x2:.3f} {y2:.3f} ;',
+            f'    END', f'  END {name}', '']
+
+    # Analog pins
+    for i in range(8):
+        cx = ANALOG_X[i]
+        lef_lines += [
+            f'  PIN ua[{i}]', '    DIRECTION INOUT ;', '    USE SIGNAL ;',
+            '    PORT', '      LAYER met4 ;',
+            f'        RECT {cx - 0.45:.3f} 0.000 {cx + 0.45:.3f} 1.000 ;',
+            '    END', f'  END ua[{i}]', '']
+
+    # Digital pins
+    for name, (cx, cy) in DIGITAL_PINS.items():
+        d = ('OUTPUT' if any(k in name for k in ('uo_out', 'uio_out', 'uio_oe'))
+             else 'INPUT')
+        lef_lines += [
+            f'  PIN {name}', f'    DIRECTION {d} ;', '    USE SIGNAL ;',
+            '    PORT', '      LAYER met4 ;',
+            f'        RECT {cx - 0.15:.3f} {cy - 0.5:.3f} {cx + 0.15:.3f} {cy + 0.5:.3f} ;',
+            '    END', f'  END {name}', '']
+
+    lef_lines += [f'END {TOP}', '', 'END LIBRARY', '']
+    lef_path = os.path.join(lef_dir, f'{TOP}.lef')
+    with open(lef_path, 'w') as f:
+        f.write('\n'.join(lef_lines))
+    print(f'\nLEF written: {lef_path}')
+
+
+# ===========================================================================
+# SVG GENERATION — per-layer + combined
+# ===========================================================================
+SVG_STYLE = {
+    (235, 4):  ("none",    "#555555", 0.3, "prbndry"),
+    (64, 20):  ("#8B4513", "#6b3410", 0.25, "nwell"),
+    (65, 20):  ("#228B22", "#1a6b1a", 0.5,  "diff"),
+    (65, 44):  ("#33CC33", "#229922", 0.5,  "tap"),
+    (66, 20):  ("#FF0000", "#cc0000", 0.45, "poly"),
+    (66, 44):  ("#FFD700", "#ccaa00", 0.6,  "licon"),
+    (93, 44):  ("#00CED1", "#00a0a5", 0.15, "nsdm"),
+    (94, 20):  ("#FF69B4", "#cc5490", 0.15, "psdm"),
+    (95, 20):  ("#9400D3", "#7500a8", 0.2,  "npc"),
+    (67, 20):  ("#00BFFF", "#0099cc", 0.55, "li1"),
+    (67, 44):  ("#FFD700", "#ccaa00", 0.7,  "mcon"),
+    (68, 20):  ("#4169E1", "#2a4a9e", 0.5,  "met1"),
+    (68, 44):  ("#FFFFFF", "#aaaaaa", 0.8,  "via"),
+    (69, 20):  ("#FF8C00", "#cc7000", 0.45, "met2"),
+    (69, 44):  ("#FFFFFF", "#aaaaaa", 0.8,  "via2"),
+    (70, 20):  ("#32CD32", "#28a428", 0.45, "met3"),
+    (70, 44):  ("#FFFFFF", "#aaaaaa", 0.8,  "via3"),
+    (71, 20):  ("#DA70D6", "#b05aaa", 0.5,  "met4"),
+}
+
+LAYER_ORDER = [
+    (235, 4), (64, 20), (65, 20), (65, 44), (66, 20), (66, 44),
+    (93, 44), (94, 20), (95, 20), (67, 20), (67, 44),
+    (68, 20), (68, 44), (69, 20), (69, 44), (70, 20), (70, 44), (71, 20),
+]
+
+MARGIN_SVG = 5
+SCALE_SVG  = 4
+
+
+def polygons_to_svg(polys, bb_min, h_total, scale):
+    parts = []
+    for poly in polys:
+        pts = poly.points
+        d = f"M {(pts[0][0] - bb_min[0]) * scale:.2f},{(h_total - (pts[0][1] - bb_min[1])) * scale:.2f}"
+        for px, py in pts[1:]:
+            d += f" L {(px - bb_min[0]) * scale:.2f},{(h_total - (py - bb_min[1])) * scale:.2f}"
+        d += " Z"
+        parts.append(d)
+    return " ".join(parts)
+
+
+def labels_to_svg(labels, bb_min, h_total, scale, font_size=2.5):
+    elems = []
+    for lbl in labels:
+        x = (lbl.origin[0] - bb_min[0]) * scale
+        y = (h_total - (lbl.origin[1] - bb_min[1])) * scale
+        fs = font_size * scale
+        elems.append(
+            f'<text x="{x:.2f}" y="{y:.2f}" '
+            f'font-family="monospace" font-size="{fs:.1f}" '
+            f'fill="#ffffff" stroke="#000000" stroke-width="0.3" '
+            f'text-anchor="middle" dominant-baseline="central">'
+            f'{lbl.text}</text>')
+    return "\n    ".join(elems)
+
+
+def generate_svgs(gds_path, repo_root):
+    """Generate per-layer and combined SVG visualizations."""
+    import warnings
+    warnings.filterwarnings("ignore")
+    # Load the PLL GDS, then merge standard cells so references resolve
+    lib = gdstk.read_gds(gds_path)
+    stdcell_lib = gdstk.read_gds(STDCELL_GDS)
+    existing = {c.name for c in lib.cells}
+    for sc in stdcell_lib.cells:
+        if sc.name not in existing:
+            lib.add(sc)
+    cell = [c for c in lib.top_level() if c.name.startswith("tt_um_")][0]
+    bb = cell.bounding_box()
+
+    bb_min = (bb[0][0] - MARGIN_SVG, bb[0][1] - MARGIN_SVG)
+    die_w = bb[1][0] - bb[0][0] + 2 * MARGIN_SVG
+    die_h = bb[1][1] - bb[0][1] + 2 * MARGIN_SVG
+
+    svg_w = die_w * SCALE_SVG
+    svg_h = die_h * SCALE_SVG + 25
+
+    svg_dir = os.path.join(repo_root, "svg")
+    os.makedirs(svg_dir, exist_ok=True)
+
+    # Flatten all polygons by layer
+    layer_polys = {}
+    all_polys = cell.get_polygons(depth=-1)
+    for poly in all_polys:
+        key = (poly.layer, poly.datatype)
+        layer_polys.setdefault(key, []).append(poly)
+
+    all_labels = cell.get_labels(depth=-1)
+
+    # --- Combined SVG ---
+    combined_parts = []
+    for layer_key in LAYER_ORDER:
+        if layer_key not in SVG_STYLE:
+            continue
+        polys = layer_polys.get(layer_key, [])
+        if not polys:
+            continue
+        fill, stroke, opacity, name = SVG_STYLE[layer_key]
+        path_data = polygons_to_svg(polys, bb_min, die_h, SCALE_SVG)
+        sw = "1.5" if fill == "none" else "0.5"
+        dash = "4,2" if fill == "none" else "none"
+        combined_parts.append(
+            f'<path d="{path_data}" '
+            f'fill="{fill}" fill-opacity="{opacity}" '
+            f'stroke="{stroke}" stroke-width="{sw}" '
+            f'stroke-dasharray="{dash}"/>')
+
+    # Labels
+    combined_parts.append(labels_to_svg(all_labels, bb_min, die_h, SCALE_SVG))
+
+    # Legend
+    legend_y = die_h * SCALE_SVG - 15
+    for i, lk in enumerate(LAYER_ORDER):
+        if lk not in SVG_STYLE:
+            continue
+        fill, stroke, opacity, name = SVG_STYLE[lk]
+        lx = 10 + (i % 9) * 95
+        ly = legend_y + (i // 9) * 14
+        cfill = fill if fill != "none" else "#333333"
+        combined_parts.append(
+            f'<rect x="{lx}" y="{ly}" width="10" height="8" '
+            f'fill="{cfill}" opacity="0.8" stroke="#fff" stroke-width="0.5"/>')
+        combined_parts.append(
+            f'<text x="{lx + 14}" y="{ly + 7}" font-family="sans-serif" '
+            f'font-size="8" fill="#cccccc">{name}</text>')
+
+    content = "\n    ".join(combined_parts)
+    svg_text = (
+        f'<?xml version="1.0" encoding="UTF-8"?>\n'
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{svg_w:.1f}" height="{svg_h:.1f}" '
+        f'viewBox="0 0 {svg_w:.1f} {svg_h:.1f}">\n'
+        f'<rect width="100%" height="100%" fill="#1a1a2e"/>\n'
+        f'<text x="{svg_w/2:.1f}" y="18" font-family="sans-serif" font-size="14" '
+        f'fill="#eee" text-anchor="middle" font-weight="bold">'
+        f'{cell.name} — Combined Layout</text>\n'
+        f'<g transform="translate(0, 25)">\n    {content}\n</g>\n</svg>\n')
+
+    comb_path = os.path.join(svg_dir, "combined.svg")
+    with open(comb_path, "w") as f:
+        f.write(svg_text)
+    print(f"  SVG combined: {comb_path}")
+
+    # --- Per-layer SVGs ---
+    for layer_key in LAYER_ORDER:
+        if layer_key not in SVG_STYLE:
+            continue
+        polys = layer_polys.get(layer_key, [])
+        if not polys:
+            continue
+
+        fill, stroke, opacity, name = SVG_STYLE[layer_key]
+        parts = []
+
+        # Boundary outline for context
+        bndry = layer_polys.get((235, 4), [])
+        if bndry and layer_key != (235, 4):
+            bd = polygons_to_svg(bndry, bb_min, die_h, SCALE_SVG)
+            parts.append(
+                f'<path d="{bd}" fill="none" stroke="#555555" '
+                f'stroke-width="1" stroke-dasharray="4,2"/>')
+
+        path_data = polygons_to_svg(polys, bb_min, die_h, SCALE_SVG)
+        cfill = fill if fill != "none" else "#666666"
+        parts.append(
+            f'<path d="{path_data}" '
+            f'fill="{cfill}" fill-opacity="{opacity}" '
+            f'stroke="{stroke}" stroke-width="0.5"/>')
+
+        # Polygon count
+        parts.append(
+            f'<text x="10" y="{die_h * SCALE_SVG - 5}" font-family="sans-serif" '
+            f'font-size="11" fill="#aaaaaa">'
+            f'{name} ({layer_key[0]},{layer_key[1]}) — {len(polys)} polygons</text>')
+
+        layer_content = "\n    ".join(parts)
+        layer_title = f"{cell.name} — {name} ({layer_key[0]},{layer_key[1]})"
+        layer_svg = (
+            f'<?xml version="1.0" encoding="UTF-8"?>\n'
+            f'<svg xmlns="http://www.w3.org/2000/svg" width="{svg_w:.1f}" height="{svg_h:.1f}" '
+            f'viewBox="0 0 {svg_w:.1f} {svg_h:.1f}">\n'
+            f'<rect width="100%" height="100%" fill="#1a1a2e"/>\n'
+            f'<text x="{svg_w/2:.1f}" y="18" font-family="sans-serif" font-size="14" '
+            f'fill="#eee" text-anchor="middle" font-weight="bold">{layer_title}</text>\n'
+            f'<g transform="translate(0, 25)">\n    {layer_content}\n</g>\n</svg>\n')
+
+        fname = os.path.join(svg_dir, f"layer_{name}.svg")
+        with open(fname, "w") as f:
+            f.write(layer_svg)
+        print(f"  SVG layer: {fname}")
 
 
 if __name__ == "__main__":

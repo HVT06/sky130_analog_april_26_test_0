@@ -55,12 +55,14 @@ Iref_n VPWR nbias 10u
 * Loop Filter (redesigned for on-chip MOSCAP feasibility)
 * ================================================================
 * R = 4.7 kΩ (precision poly resistor, xhrpoly ~48.2 Ω/sq)
-Xrlf vctrl vlf1 sky130_fd_pr__res_xhigh_po_0p35 w=0.35u l=34.0u mult=1
+* Pins: r0 r1 body (body tied to VGND)
+* Note: using custom subckt name to avoid .lib tt redefinition conflict
+Xrlf vctrl vlf1 VGND pll_res_xhigh_po_0p35 w=0.35u l=34.0u mult=1
 * C1 = 10 pF (MOSCAP: NMOS gate cap, gate=top plate, S/D/B=bottom=VGND)
 * MOSCAP area: W×L ≈ 1205 µm² → distributed as multi-finger array
-XMcap1 vlf1 VGND VGND VGND sky130_fd_pr__nfet_01v8 l=2.0u w=602.0u
+XMcap1 VGND vlf1 VGND VGND sky130_fd_pr__nfet_01v8 l=2.0u w=60.2u mult=10
 * C2 = 1 pF (MOSCAP)
-XMcap2 vctrl VGND VGND VGND sky130_fd_pr__nfet_01v8 l=2.0u w=60.0u
+XMcap2 VGND vctrl VGND VGND sky130_fd_pr__nfet_01v8 l=2.0u w=60.0u
 
 * ================================================================
 * 5-Stage Current-Starved Ring VCO
@@ -100,7 +102,7 @@ XMn_i5 ns5  s4        s5  VGND sky130_fd_pr__nfet_01v8 l=0.15u w=1.0u
 XMn_k5 VGND vctrl     ns5 VGND sky130_fd_pr__nfet_01v8 l=0.5u w=2.0u
 
 * Output buffer (two inverters)
-Xinv_buf1 s5 vco_b VGND VGND VPWR VPWR vco_out_i sky130_fd_sc_hd__inv_1
+Xinv_buf1 s5 VGND VGND VPWR VPWR vco_b sky130_fd_sc_hd__inv_1
 Xinv_buf2 vco_b VGND VGND VPWR VPWR vco_out sky130_fd_sc_hd__inv_1
 
 * ================================================================
@@ -123,7 +125,7 @@ Xinv_div1 q2 VGND VGND VPWR VPWR div_clk_b sky130_fd_sc_hd__inv_1
 Xinv_div2 div_clk_b VGND VGND VPWR VPWR div_clk sky130_fd_sc_hd__inv_1
 Xinv_dout div_clk VGND VGND VPWR VPWR div_out sky130_fd_sc_hd__inv_1
 
-* Vctrl monitor (direct connection)
-Rmon vctrl vctrl_mon 0
+* Vctrl monitor (high-impedance buffer)
+Rmon vctrl vctrl_mon 1k
 
 .ends pll_top

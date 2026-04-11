@@ -1,0 +1,161 @@
+* =============================================================
+* PLL LVS Netlist Simulation Testbench
+* Verifies the schematic netlist used for LVS against ngspice
+* =============================================================
+
+* ---- Sky130 PDK models (matching .lib tt include order from corners/tt.spice) ----
+.param mc_mm_switch=0
+.param mc_pr_switch=0
+
+* LOD parameters (needed by pfet PM3 model)
+.include "/home/hvt06/Downloads/open_pdks/sky130/sky130A/libs.tech/ngspice/parameters/lod.spice"
+
+* NFET: PM3 directly + mismatch (same as corners/tt.spice)
+.include "/home/hvt06/Downloads/open_pdks/sky130/sky130A/libs.ref/sky130_fd_pr/spice/sky130_fd_pr__nfet_01v8__tt.pm3.spice"
+.include "/home/hvt06/Downloads/open_pdks/sky130/sky130A/libs.ref/sky130_fd_pr/spice/sky130_fd_pr__nfet_01v8__mismatch.corner.spice"
+
+* PFET: corner (includes PM3 + bin diffs) + mismatch
+.include "/home/hvt06/Downloads/open_pdks/sky130/sky130A/libs.ref/sky130_fd_pr/spice/sky130_fd_pr__pfet_01v8__tt.corner.spice"
+.include "/home/hvt06/Downloads/open_pdks/sky130/sky130A/libs.ref/sky130_fd_pr/spice/sky130_fd_pr__pfet_01v8__mismatch.corner.spice"
+
+* HVT PFET: PM3 directly + mismatch (same as corners/tt.spice)
+.include "/home/hvt06/Downloads/open_pdks/sky130/sky130A/libs.ref/sky130_fd_pr/spice/sky130_fd_pr__pfet_01v8_hvt__tt.pm3.spice"
+.include "/home/hvt06/Downloads/open_pdks/sky130/sky130A/libs.ref/sky130_fd_pr/spice/sky130_fd_pr__pfet_01v8_hvt__mismatch.corner.spice"
+
+* Note: special_nfet_01v8 is already defined in nfet PM3 as a wrapper around nfet_01v8
+
+* ---- Standard cell definitions (inline, with corrected units) ----
+* The sky130_fd_sc_hd.spice library uses dimensions like w=420000u l=150000u
+* which require .option scale=1e-6. To avoid scaling conflicts with the PLL
+* analog transistors (which use proper u-suffix units), we inline the 3 cells
+* we need with corrected dimensions.
+
+.subckt sky130_fd_sc_hd__inv_1 A VGND VNB VPB VPWR Y
+X0 VGND A Y VNB sky130_fd_pr__nfet_01v8 w=0.65u l=0.15u
+X1 VPWR A Y VPB sky130_fd_pr__pfet_01v8_hvt w=1.0u l=0.15u
+.ends
+
+.subckt sky130_fd_sc_hd__nand2_1 A B VGND VNB VPB VPWR Y
+X0 Y A VPWR VPB sky130_fd_pr__pfet_01v8_hvt w=1.0u l=0.15u
+X1 VPWR B Y VPB sky130_fd_pr__pfet_01v8_hvt w=1.0u l=0.15u
+X2 VGND B a_113_47# VNB sky130_fd_pr__nfet_01v8 w=0.65u l=0.15u
+X3 a_113_47# A Y VNB sky130_fd_pr__nfet_01v8 w=0.65u l=0.15u
+.ends
+
+.subckt sky130_fd_sc_hd__dfrtp_1 CLK D RESET_B VGND VNB VPB VPWR Q
+X0 a_1270_413# a_1283_21# VPWR VPB sky130_fd_pr__pfet_01v8_hvt w=0.42u l=0.15u
+X1 VPWR a_543_47# a_761_289# VPB sky130_fd_pr__pfet_01v8_hvt w=0.84u l=0.15u
+X2 VGND a_543_47# a_761_289# VNB sky130_fd_pr__nfet_01v8 w=0.64u l=0.15u
+X3 VGND D a_448_47# VNB sky130_fd_pr__nfet_01v8 w=0.42u l=0.15u
+X4 a_1108_47# a_193_47# a_1270_413# VPB sky130_fd_pr__pfet_01v8_hvt w=0.42u l=0.15u
+X5 VGND a_1283_21# Q VNB sky130_fd_pr__nfet_01v8 w=0.65u l=0.15u
+X6 a_1217_47# a_1283_21# VGND VNB sky130_fd_pr__nfet_01v8 w=0.42u l=0.15u
+X7 a_448_47# a_27_47# a_543_47# VNB sky130_fd_pr__special_nfet_01v8 w=0.36u l=0.15u
+X8 a_448_47# a_193_47# a_543_47# VPB sky130_fd_pr__pfet_01v8_hvt w=0.42u l=0.15u
+X9 a_543_47# a_193_47# a_639_47# VNB sky130_fd_pr__special_nfet_01v8 w=0.36u l=0.15u
+X10 a_1108_47# a_27_47# a_1217_47# VNB sky130_fd_pr__special_nfet_01v8 w=0.36u l=0.15u
+X11 a_1462_47# a_1108_47# a_1283_21# VNB sky130_fd_pr__nfet_01v8 w=0.42u l=0.15u
+X12 a_543_47# a_27_47# a_651_413# VPB sky130_fd_pr__pfet_01v8_hvt w=0.42u l=0.15u
+X13 a_805_47# RESET_B VGND VNB sky130_fd_pr__nfet_01v8 w=0.42u l=0.15u
+X14 a_761_289# a_193_47# a_1108_47# VNB sky130_fd_pr__special_nfet_01v8 w=0.36u l=0.15u
+X15 VPWR RESET_B a_651_413# VPB sky130_fd_pr__pfet_01v8_hvt w=0.42u l=0.15u
+X16 VGND a_27_47# a_193_47# VNB sky130_fd_pr__nfet_01v8 w=0.42u l=0.15u
+X17 a_27_47# CLK VGND VNB sky130_fd_pr__nfet_01v8 w=0.42u l=0.15u
+X18 a_27_47# CLK VPWR VPB sky130_fd_pr__pfet_01v8_hvt w=0.64u l=0.15u
+X19 VPWR a_1283_21# Q VPB sky130_fd_pr__pfet_01v8_hvt w=1.0u l=0.15u
+X20 VPWR a_27_47# a_193_47# VPB sky130_fd_pr__pfet_01v8_hvt w=0.64u l=0.15u
+X21 a_1283_21# a_1108_47# VPWR VPB sky130_fd_pr__pfet_01v8_hvt w=0.42u l=0.15u
+X22 VGND RESET_B a_1462_47# VNB sky130_fd_pr__nfet_01v8 w=0.42u l=0.15u
+X23 VPWR D a_448_47# VPB sky130_fd_pr__pfet_01v8_hvt w=0.42u l=0.15u
+X24 a_651_413# a_761_289# VPWR VPB sky130_fd_pr__pfet_01v8_hvt w=0.42u l=0.15u
+X25 a_761_289# a_27_47# a_1108_47# VPB sky130_fd_pr__pfet_01v8_hvt w=0.42u l=0.15u
+X26 VPWR RESET_B a_1283_21# VPB sky130_fd_pr__pfet_01v8_hvt w=0.42u l=0.15u
+X27 a_639_47# a_761_289# a_805_47# VNB sky130_fd_pr__nfet_01v8 w=0.42u l=0.15u
+.ends
+
+* Simplified resistor model — custom name avoids .lib tt redefinition conflict
+* rsheet=2000 ohms/sq; R = rsheet * l / w; l/w ratio gives correct R regardless of units
+.subckt pll_res_xhigh_po_0p35 r0 r1 b w=0.35 l=5 mult=1
+Rbody r0 r1 r={l*2000/w/mult}
+.ends pll_res_xhigh_po_0p35
+
+* ---- Include PLL subcircuit ----
+.include "../lvs/pll_schematic.spice"
+
+* ---- Top-level testbench ----
+Vdd vdd 0 1.8
+Vgnd vgnd 0 0
+
+* Reference clock: 100 MHz (10 ns period)
+* Use internal node + series R to decouple PULSE source from stiff gate load
+Vref ref_int 0 PULSE(0 1.8 0 500p 500p 4.5n 10n)
+Rref ref_int ref_clk 10
+
+* Instantiate PLL
+XPLL ref_clk div_out vctrl_mon vdd vgnd pll_top
+
+* ---- Initial conditions ----
+* Set vctrl and pbias to reasonable values; break VCO ring symmetry
+.ic V(XPLL.vctrl)=0.9 V(XPLL.pbias_vco)=0.7
++ V(XPLL.s1)=1.8 V(XPLL.s2)=0 V(XPLL.s3)=1.8 V(XPLL.s4)=0 V(XPLL.s5)=0
+
+* ---- Convergence options ----
+.option reltol=5e-3
+.option abstol=1e-10
+.option vntol=1e-4
+.option method=gear
+.option itl1=500
+.option itl4=300
+.option gmin=1e-12
+
+* ---- Simulation ----
+.tran 1n 15u uic
+
+* ---- Save key signals ----
+.save v(vdd) v(ref_clk) v(div_out) v(XPLL.vctrl) v(XPLL.vco_out)
++ v(XPLL.div_clk) v(XPLL.up) v(XPLL.dn) v(XPLL.s1) v(XPLL.s5)
++ v(XPLL.s2) v(XPLL.s3) v(XPLL.s4) v(XPLL.pbias_vco)
++ v(XPLL.ps1) v(XPLL.ns1)
+
+* ---- Output control ----
+.control
+set filetype=ascii
+set wr_vecnames
+
+run
+
+* Save waveform data
+wrdata results/lvs_pll_sim.tsv v(XPLL.vctrl) v(XPLL.vco_out) v(XPLL.div_clk) v(ref_clk) v(XPLL.up) v(XPLL.dn)
+
+* Print Vctrl at key timepoints
+meas tran vc_100n FIND v(XPLL.vctrl) AT=100n
+meas tran vc_500n FIND v(XPLL.vctrl) AT=500n
+meas tran vc_1u   FIND v(XPLL.vctrl) AT=1u
+meas tran vc_5u   FIND v(XPLL.vctrl) AT=5u
+meas tran vc_10u  FIND v(XPLL.vctrl) AT=10u
+meas tran vc_15u  FIND v(XPLL.vctrl) AT=15u
+
+echo ""
+echo "=== Vctrl vs Time ==="
+echo "  100ns: $&vc_100n V"
+echo "  500ns: $&vc_500n V"
+echo "   1us:  $&vc_1u V"
+echo "   5us:  $&vc_5u V"
+echo "  10us:  $&vc_10u V"
+echo "  15us:  $&vc_15u V"
+
+* Measure VCO frequency near end of sim
+* Use explicit time window to find two consecutive rising edges
+meas tran tvco_a WHEN v(XPLL.vco_out)=0.9 RISE=2 TD=14.9u
+meas tran tvco_b WHEN v(XPLL.vco_out)=0.9 RISE=3 TD=14.9u
+let fvco = 1/(tvco_b - tvco_a)
+echo ""
+print fvco
+echo ""
+echo "VCO freq near end = $&fvco Hz"
+echo ""
+echo "LVS netlist simulation complete."
+quit
+.endc
+
+.end

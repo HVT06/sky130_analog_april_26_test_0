@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="684.0" height="968.0" viewBox="0 0 684.0 968.0">
+<rect width="100%" height="100%" fill="#1a1a2e"/>
+<text x="342.0" y="18" font-family="sans-serif" font-size="14" fill="#eee" text-anchor="middle" font-weight="bold">tt_um_pll_sky130 — met2 (69,20)</text>
+<g transform="translate(0, 25)">
+    <path d="M 20.00,923.04 L 664.00,923.04 L 664.00,20.00 L 20.00,20.00 Z" fill="none" stroke="#555555" stroke-width="1" stroke-dasharray="4,2"/>
+    <path d="M 160.00,911.04 L 162.00,911.04 L 162.00,571.59 L 160.00,571.59 Z M 140.00,911.04 L 142.00,911.04 L 142.00,571.59 L 140.00,571.59 Z M 120.00,911.04 L 122.00,911.04 L 122.00,869.44 L 120.00,869.44 Z M 80.00,890.24 L 82.00,890.24 L 82.00,803.44 L 80.00,803.44 Z M 88.00,890.24 L 90.00,890.24 L 90.00,803.44 L 88.00,803.44 Z M 50.80,637.59 L 52.00,637.59 L 52.00,593.59 L 50.80,593.59 Z M 66.80,637.59 L 68.00,637.59 L 68.00,593.59 L 66.80,593.59 Z M 82.80,637.59 L 84.00,637.59 L 84.00,593.59 L 82.80,593.59 Z M 98.80,637.59 L 100.00,637.59 L 100.00,593.59 L 98.80,593.59 Z M 114.80,637.59 L 116.00,637.59 L 116.00,593.59 L 114.80,593.59 Z" fill="#FF8C00" fill-opacity="0.45" stroke="#cc7000" stroke-width="0.5"/>
+    <text x="10" y="938.04" font-family="sans-serif" font-size="11" fill="#aaaaaa">met2 (69,20) — 10 polygons</text>
+</g>
+</svg>

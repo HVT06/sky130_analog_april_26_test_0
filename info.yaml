@@ -1,7 +1,7 @@
 # Tiny Tapeout project information
 project:
   title:        "Ring-Oscillator PLL (sky130A)"
-  author:       ""      # Your name
+  author:       "hvt006"      # Your name
   discord:      ""      # Your discord username, for communication and automatically assigning you a Tapeout role (optional)
   description:  "50-500 MHz tunable PLL with current-starved ring VCO, transistor-level PFD, on-chip MOSCAP loop filter"
   language:     "Analog" # other examples include Verilog, Amaranth, VHDL, etc
